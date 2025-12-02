@@ -1,6 +1,6 @@
 {
   "name": "@gershy/clearing",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Adds the features you always wish javascript had!",
   "keywords": [
     "clearing",
@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/gershy/clearing#readme",
   "license": "ISC",
+  "types": "./cmp/types/global.d.ts",
   "exports": {
     ".": {
       "import": "./cmp/mjs/main.js",
