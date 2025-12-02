@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "target": "es2024",
+    "strict": true,
+    "noImplicitAny": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [ "src/**/*.ts", "src/global.d.ts" ]
+}

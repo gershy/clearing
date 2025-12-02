@@ -1,0 +1,35 @@
+{
+  "name": "@gershy/clearing",
+  "version": "0.0.3",
+  "description": "Adds the features you always wish javascript had!",
+  "keywords": [
+    "clearing",
+    "toArr",
+    "toObj"
+  ],
+  "author": "Gershom Maes",
+  "license": "ISC",
+  "exports": {
+    ".": {
+      "import": "./cmp/mjs/main.js",
+      "require": "./cmp/cjs/main.js",
+      "types": "./cmp/types/global.d.ts"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "cpx": "^1.5.0",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  },
+  "files": [
+    "cmp"
+  ],
+  "scripts": {
+    "build.cjs": "tsc -p ts/tsconfig.cjs.json",
+    "build.mjs": "tsc -p ts/tsconfig.mjs.json",
+    "build.types": "cpx src/global.d.ts cmp/types",
+    "build": "rimraf cmp && npm run build.cjs && npm run build.mjs && npm run build.types",
+    "publish": "npm run build && npm publish --access public"
+  }
+}
