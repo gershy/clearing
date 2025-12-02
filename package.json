@@ -1,6 +1,6 @@
 {
   "name": "@gershy/clearing",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Adds the features you always wish javascript had!",
   "keywords": [
     "clearing",
@@ -8,6 +8,14 @@
     "toObj"
   ],
   "author": "Gershom Maes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gershy/clearing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gershy/clearing/issues"
+  },
+  "homepage": "https://github.com/gershy/clearing#readme",
   "license": "ISC",
   "exports": {
     ".": {
