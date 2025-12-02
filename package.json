@@ -38,6 +38,7 @@
     "build.mjs": "tsc -p ts/tsconfig.mjs.json",
     "build.types": "cpx src/global.d.ts cmp/types",
     "build": "rimraf cmp && npm run build.cjs && npm run build.mjs && npm run build.types",
-    "publish": "npm run build && npm publish --access public"
+    "npm.pub": "npm run build && npm publish --access public",
+    "git.pub": "git add --all && git commit -m \"automated\" && git push"
   }
 }
