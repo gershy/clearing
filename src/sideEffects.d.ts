@@ -9,11 +9,9 @@ declare global {
   type ObjKeys<O extends Obj> = Extract<keyof O, string> | `${Extract<keyof O, number>}`; // Convert numbers to strings; ignores symbols
   type ObjVals<O extends Obj> = O[Extract<keyof O, string>];
   
-  type Itr<O extends Obj> = Iterable<[ ObjKeys<O>, ObjVals<O> ]>;
   type Json = null | boolean | number | string | Json[] | { [K: string]: Json };
   type Skip = undefined;
   type SkipNever<V> = V extends Skip ? Skip extends V ? never : V : V;
-  type UGH = any; // Use when necessary to escape typing because typescript has failed us
   
   type Dive<O extends Obj, K extends readonly string[], D = undefined> =
     K extends [ infer K0 extends string, ...infer KM extends string[] ]
@@ -28,9 +26,6 @@ declare global {
     charVal: (c: string) => bigint,
     valChar: (n: bigint) => string
   };
-
-  type MaybePromise<T> = T | Promise<T>;
-
   type ClsCheck = {
     (i: unknown, num:    BooleanConstructor):  i is boolean,
     (i: unknown, num:    NumberConstructor):   i is number,

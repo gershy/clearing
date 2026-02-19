@@ -8,5 +8,5 @@
     "declarationDir": "../cmp/mjs",
     "emitDeclarationOnly": false
   },
-  "exclude": [ "../src/**/*.test.mts" ]
+  "exclude": [ "../src/**/*.test.ts" ]
 }

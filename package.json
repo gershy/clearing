@@ -1,6 +1,6 @@
 {
   "name": "@gershy/clearing",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Adds the features you always wish javascript had!",
   "keywords": [
     "clearing",
@@ -22,6 +22,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
+  "type": "module",
   "files": [
     "cmp"
   ],
@@ -29,17 +30,17 @@
     ".": {
       "import": "./cmp/mjs/main.js",
       "require": "./cmp/cjs/main.js",
-      "types": "./cmp/types/global.d.ts"
+      "types": "./cmp/types/sideEffects.d.ts"
     }
   },
-  "types": "./cmp/types/global.d.ts",
+  "types": "./cmp/types/sideEffects.d.ts",
   "scripts": {
-    "test": "npx tsx ./src/main.test.mts",
+    "test": "npm run ts.check && npx tsx ./src/main.test.ts",
     "ts.check": "npx tsc --noEmit",
     "build.cjs": "tsc -p ts/tsconfig.cjs.json",
     "build.mjs": "tsc -p ts/tsconfig.mjs.json",
-    "build.types": "node build.js copyGlobalTypes",
-    "build": "node build.js removeCmp && npm run build.cjs && npm run build.mjs && npm run build.types",
+    "build.types": "npx tsx ./build.ts copyGlobalTypes",
+    "build": "npx tsx ./build.ts removeCmp && npm run build.cjs && npm run build.mjs && npm run build.types",
     "git.pub": "npm run test && git add --all && git commit -m \"automated\" && git push",
     "npm.login": "npm login",
     "npm.pub": "npm run test && npm run build && npm publish --access public"

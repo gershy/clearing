@@ -1,20 +1,21 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 (async () => {
   
-  const [ { promises: fs }, path ] = [ 'fs', 'path' ].map(v => require(v));
-  
-  const dir = __dirname;
+  const dir = import.meta.dirname;
   const mode = process.argv.at(-1);
   if (mode === 'copyGlobalTypes') {
     
     await fs.mkdir(path.join(dir, 'cmp', 'types'), { recursive: true });
     await fs.cp(
-      path.join(dir, 'src', 'global.d.ts'),
-      path.join(dir, 'cmp', 'types', 'global.d.ts')
+      path.join(dir, 'src', 'sideEffects.d.ts'),
+      path.join(dir, 'cmp', 'types', 'sideEffects.d.ts')
     );
     
   } else if (mode === 'removeCmp') {
     
-    await fs.rm(path.join(dir, 'cmp'), { recursive: true });
+    await fs.rm(path.join(dir, 'cmp'), { recursive: true, force: true });
     
   }
   

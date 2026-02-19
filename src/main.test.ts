@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import './main';
+import './main.js';
 
 const equal = (v0: any, v1: any): boolean => {
   
@@ -55,8 +55,6 @@ const equal = (v0: any, v1: any): boolean => {
   
   type Enforce<Provided, Expected extends Provided> = { provided: Provided, expected: Expected };
   
-  // TODO: Even if these tests are failing, `npm run test` can still successfully execute here -
-  // need failing typing to prevent any other actions (e.g. git.pub) gated behind test validation
   type Tests = {
     
     1: Enforce<
@@ -88,7 +86,7 @@ const equal = (v0: any, v1: any): boolean => {
   
 })();
 
-// Enforce symbol alignment for global.d.ts vs main.ts - typescript doesn't seem up to it!
+// Enforce symbol alignment for sideEffects.d.ts vs main.ts - typescript doesn't seem up to it!
 (async () => {
   
   await (async () => {
@@ -133,7 +131,7 @@ const equal = (v0: any, v1: any): boolean => {
     
     const fp = dirname(fileURLToPath(import.meta.url));
     const fileDataArr = await Promise.all(
-      [ 'global.d.ts', 'main.ts' ]
+      [ 'sideEffects.d.ts', 'main.ts' ]
         .map(fd => readFile(join(fp, fd), 'utf8'))
     );
     const symSets = fileDataArr.map(fileData => [ ...getSymbolSets(fileData) ]).flat(1);
