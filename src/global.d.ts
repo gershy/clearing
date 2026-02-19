@@ -1,8 +1,8 @@
 declare global {
 
   // Util
-  type Fn<A=any[], T=any> = (...args: A) => T;
-  type Obj<V = any> = { [typeof iden]: 'obj' } & { [k: string]: V };
+  type Fn<A extends any[] = any[], T = any> = (...args: A) => T;
+  type Obj<V = any> = { [k: string]: V };
   
   // Differentiate between "map" and "rec" ("record") - maps have arbitrary keys; recs have fixed keys
   type ObjMode<O extends { [K: string]: any }> = O extends { [K in infer KK]: any } ? (string extends KK ? 'map' : 'rec') : never;
@@ -12,15 +12,15 @@ declare global {
   type Itr<O extends Obj> = Iterable<[ ObjKeys<O>, ObjVals<O> ]>;
   type Json = null | boolean | number | string | Json[] | { [K: string]: Json };
   type Skip = undefined;
-  type SkipNever<V> = V extends Skip ? Skip extends V ? never : V : V; // 0 extends (1 & T) ? any : V extends Skip ? Skip extends V ? never : V : V; // Only thing that doesn't work is `SkipNever<any>`
+  type SkipNever<V> = V extends Skip ? Skip extends V ? never : V : V;
   type UGH = any; // Use when necessary to escape typing because typescript has failed us
   
   type Dive<O extends Obj, K extends readonly string[], D = undefined> =
-    K extends [ infer K0, ...infer KM ]
+    K extends [ infer K0 extends string, ...infer KM extends string[] ]
       ? K0 extends keyof O
         ? (ObjMode<O> extends 'map' ? D : never) | Dive<O[K0], KM, D>
         : D
-      : O; // If `K` doesn't extend an array with a single item, it's an empty array - so use the current value
+      : O;
   
   type CharSet = {
     str: string,
@@ -41,7 +41,7 @@ declare global {
     (i: unknown, fn:     FunctionConstructor): i is Fn,
     (i: unknown, fn:     SymbolConstructor):   i is symbol,
     <T>(i: unknown, prm: PromiseConstructor):  i is Promise<T>,
-    <C>(i: unknown, cls: C):                   i is InstanceType<C>
+    <C extends abstract new (...args: any) => any>(i: unknown, cls: C): i is InstanceType<C>
   };
   const clearing: {
     
@@ -114,251 +114,128 @@ declare global {
   const upper:     unique symbol;
   // </SYMBOLS>
   
-  // Typing only
-  const iden: unique symbol; // associate types with their *direct* constructor
-  
-  interface JSON { parse: (val: Buffer) => any };
-
-  interface ProtoWithSymbols {
-    [add]:      undefined
-    [at]:       undefined
-    [assert]:   undefined
-    [bind]:     undefined
-    [count]:    undefined
-    [cut]:      undefined
-    [dive]:     undefined
-    [empty]:    undefined
-    [fire]:     undefined
-    [group]:    undefined
-    [has]:      undefined
-    [hasHead]:  undefined
-    [hasTail]:  undefined
-    [indent]:   undefined
-    [limn]:     undefined
-    [lower]:    undefined
-    [mod]:      undefined
-    [map]:      undefined
-    [mapk]:     undefined
-    [merge]:    undefined
-    [padHead]:  undefined
-    [padTail]:  undefined
-    [rem]:      undefined
-    [find]:     undefined
-    [slash]:    undefined
-    [slice]:    undefined
-    [suppress]: undefined
-    [toArr]:    undefined
-    [toNum]:    undefined
-    [toObj]:    undefined
-    [toStr]:    undefined
-    [upper]:    undefined
-  };
-  
   interface ErrorConstructor {
-    [assert]: {
-      <R, V = any>(args: V, fn: (args: V) => boolean): asserts args is R,
-    }
-  };
-  interface Error extends ProtoWithSymbols {
+    [assert]: <V = any>(args: V, fn: (args: V) => boolean) => void
+  }
+  interface Error {
     [mod]:      (props: { [K: string]: any }) => Error,
     [fire]:     (props?: { [K: string]: any }) => never,
     [suppress]: () => Error,
-    
-    [limn]: (seen?: Map) => (Obj<Json> & {
+    [limn]: (seen?: Map<any, any>) => (Obj<Json> & {
       form: string,
       msg: string,
       trace: string[],
       cause: null | ReturnType<Error[typeof limn]>
     })
-  };
+  }
   
-  interface ArrayConstructor {};
-  interface Array<T> extends ProtoWithSymbols {
-    [iden]: 'arr',
+  interface ArrayConstructor {}
+  interface Array<T> {
     [has]: (val: unknown) => boolean,
-    [map]: {
-      <
-        Fn extends (v: T, i: number) => any
-      >(
-        fn: Fn
-      ): Exclude<ReturnType<Fn>, Skip>[]
-    },
-    [add]:   <TT extends T>(val: TT) => TT,
-    [rem]:   <TT extends T>(val: TT) => void,
+    [map]: <Fn extends (v: T, i: number) => any>(fn: Fn) => Exclude<ReturnType<Fn>, Skip>[],
+    [add]: <TT extends T>(val: TT) => TT,
+    [rem]: <TT extends T>(val: TT) => void,
     [count]: () => number,
-    [empty]: (this: any[]) => this is never[],
-    [toObj]: <Fn extends (v: T, n: number) => Skip | readonly [string, any], R = Exclude<ReturnType<Fn>, Skip>>(fn: Fn) => { [K in R[0]]: R[1] },
-    [find]:  (fn: (val: T, n: number) => any) => ({ found: true, val: T, ind: number } | { found: false, val: null, ind: null }),
+    [empty]: () => boolean,
+    [toObj]: <R extends readonly [string, any]>(fn: (v: T, n: number) => Skip | R) => { [K: string]: any },
+    [find]: (fn: (val: T, n: number) => any) => ({ found: true, val: T, ind: number } | { found: false, val: null, ind: null }),
     [group]: <G extends string>(fn: (v: T) => Skip | G) => { [K in G]?: T[] }
-  };
+  }
   
-  interface FunctionConstructor {};
-  interface Function extends ProtoWithSymbols {
-    [iden]: 'fnc',
-    [bind]: {
-      <
-        Fn extends (...args: any[]) => any,
-        To
-      >(
-        this: Fn,
-        to: To
-      ): ((...args: Parameters<Fn> extends [ infer A0, ...infer AM ] ? AM : never) => ReturnType<Fn>)
-    }
-  };
+  interface FunctionConstructor {}
+  interface Function {
+    [bind]: <Fn extends (...args: any[]) => any, To>(this: Fn, to: To) => ((...args: Parameters<Fn> extends [ infer A0, ...infer AM ] ? AM : never) => ReturnType<Fn>)
+  }
   
   interface NumberConstructor {
-    [int32]: number
-  };
-  interface Number extends ProtoWithSymbols {
-    [iden]: 'num',
+    [int32]: number,
+    [int64]: number
+  }
+  interface Number {
+    [char]: () => string,
+    [isInt]: () => boolean,
     [toStr]: (str: string | CharSet, len?: number) => string,
     [toArr]: <T>(fn: (n: number) => T) => T[],
-    [map]: undefined // Prevent calling `map` on `Number` - use `toStr` instead!
-  };
+    [toObj]: <R extends readonly [string, any]>(fn: (n: number) => Skip | R) => { [K: string]: any },
+    [bits]: () => Generator<number>,
+    [Symbol.iterator]: () => Generator<number>
+  }
   
-  interface BigIntConstructor {};
-  interface BigInt extends ProtoWithSymbols {
+  interface BigIntConstructor {}
+  interface BigInt {
     [toStr]: (str: string | CharSet, len?: number) => string
-  };
+  }
   
-  interface ObjectConstructor {};
-  interface Object extends ProtoWithSymbols {
-    [iden]: 'obj',
-    [empty]: {
-      <
-        O extends Obj
-      >(
-        this: O
-      ): ObjMode<O> extends 'rec'
-        ? never & '<rec>.empty is invalid'
-        : this is Obj<never>,
-    },
-    
-    [at]: {
-      <
-        O extends Obj,
-        K extends string | string[],
-        D extends any = undefined
-      >(
-        this: O,
-        k: K,
-        def?: D
-      ): Dive<O, K extends string[] ? K : [ K ], D>,
-    },
-    [has]: {
-      // <O extends Obj>(this: O, k: string): boolean,
-      // <O extends Obj>(this: O, k: string): k is (ObjMode<O> extends 'rec' ? keyof O : any),
-      // <O extends Obj>(this: O, k: string): k is (ObjMode<O> extends 'rec' ? keyof O : any),
-      
-      // <O extends Obj, K extends keyof any>(this: O, k: K): this is { [K]: O[keyof O] }
-      
-      <O extends Obj>(this: O, k: unknown): k is keyof O
-      
-    },
-    [map]: {
-      <
-        O extends Obj,
-        Fn extends (v: ObjVals<O>, k: ObjKeys<O>) => any
-      >(
-        this: O,
-        fn: Fn
-      ): { [K in keyof O]: Exclude<ReturnType<Fn>, Skip> },
-    },
-    [mapk]: {
-      <
-        O extends Obj,
-        Fn extends (v: O[keyof O], k: ObjKeys<O>) => undefined | [ string, any ]
-      >(
-        this: O,
-        fn: Fn
-      ): { [K in Exclude<ReturnType<Fn>, Skip>[0]]: Exclude<ReturnType<Fn>, Skip>[1] },
-    },
-    [merge]: {
-      <
-        O1 extends Obj,
-        O2 extends Obj
-      >(
-        this: readonly O1,
-        val:  readonly O2
-      ): O1 & O2,
-    },
-    [slice]: {
-      <O extends Obj, K extends readonly (keyof O)[]>(this: O, keys: K): { [P in K[number]]: SkipNever<O[P]> }
-    },
-    [slash]: {
-      <
-        O extends Obj,
-        T extends readonly (keyof O)[]
-      >(
-        this: O,
-        keys: T
-      ): { [K in keyof O as Exclude<keyof O, T[number]>]: O[K] }
-    },
-    [toArr]: {
-      <
-        O extends Obj,
-        Fn extends (v: O[keyof O], k: ObjKeys<O>) => any
-      >(
-        this: O,
-        fn: Fn
-      ): Exclude<ReturnType<Fn>, Skip>[],
-    },
-    [count]: {
-      <O extends Obj>(this: O): number,
-    },
-    [group]: {
-      <O extends Obj, G extends string>(fn: (v: T) => Skip | G): { [K in G]?: Optional<O> }
-    },
-    [Symbol.iterator]: {
-      <O extends Obj>(this: O): Iterator<[ ObjKeys<O>, ObjVals<O> ]>
-    },
-    $$inspect: <V>(this: V) => { v: V }
-  };
+  interface ObjectConstructor {}
+  interface Object {
+    [empty]: () => boolean,
+    [at]: <O extends Obj, K extends string | string[], D extends any = undefined>(this: O, k: K, def?: D) => Dive<O, K extends string[] ? K : [ K ], D>,
+    [has]: <O extends Obj>(this: O, k: unknown) => k is keyof O,
+    [map]: <O extends Obj, Fn extends (v: ObjVals<O>, k: ObjKeys<O>) => any>(this: O, fn: Fn) => { [K in keyof O]: Exclude<ReturnType<Fn>, Skip> },
+    [mapk]: <O extends Obj, Fn extends (v: O[keyof O], k: ObjKeys<O>) => undefined | [ string, any ]>(this: O, fn: Fn) => { [K: string]: any },
+    [merge]: <O1 extends Obj, O2 extends Obj>(this: O1, val: O2) => O1 & O2,
+    [slice]: <O extends Obj, K extends readonly (keyof O)[]>(this: O, keys: K) => { [P in K[number]]: SkipNever<O[P]> },
+    [slash]: <O extends Obj, T extends readonly (keyof O)[]>(this: O, keys: T) => { [K in keyof O as Exclude<keyof O, T[number]>]: O[K] },
+    [toArr]: <O extends Obj, Fn extends (v: O[keyof O], k: ObjKeys<O>) => any>(this: O, fn: Fn) => Exclude<ReturnType<Fn>, Skip>[],
+    [count]: () => number,
+    [group]: <O extends Obj, G extends string>(this: O, fn: (v: O[keyof O]) => Skip | G) => { [K in G]?: Partial<O> },
+    [Symbol.iterator]: <O extends Obj>(this: O) => Iterator<[ ObjKeys<O>, ObjVals<O> ]>
+  }
   
   interface PromiseConstructor {
     [allArr]: PromiseConstructor['all'],
-    [allObj]: <O extends { [K: keyof any]: Promise<any> }>(obj: O) => { [K in keyof O]: Awaited<O[K]> },
+    [allObj]: <O extends { [K: string]: Promise<any> }>(obj: O) => Promise<{ [K in keyof O]: Awaited<O[K]> }>,
     [later]: <T=void>() => PromiseLater<T>
-  };
-  interface Promise<T> {};
-  interface PromiseLater<T=void> extends Promise<T>, ProtoWithSymbols  {
+  }
+  interface Promise<T> {}
+  interface PromiseLater<T=void> extends Promise<T> {
     resolve: T extends void ? () => void : (v: T) => void,
     reject: (err: any) => void
-  };
+  }
   
-  interface SetConstructor {};
-  interface Set<T> extends ProtoWithSymbols {
-    [toArr]: <V>(fn: (val: T, ind: number) => V) => V[],
-    [rem]:   (val: T) => void
-  };
-  
-  interface MapConstructor {};
-  interface Map<K, V> extends ProtoWithSymbols {
-    [add]:   (k: K, v: V) => void,
-    [toArr]: <T>(fn: (val: V, key: K) => T) => T[],
-    [toObj]: <T>(fn: (val: V, key: K) => T) => { [Key in K]: T },
-    [rem]:   (key: K) => void
-  };
-  
+  interface SetConstructor {}
+  interface Set<T> {
+    [count]: () => number,
+    [empty]: () => boolean,
+    [find]: (fn: (val: T) => any) => ({ found: true, val: T } | { found: false, val: null }),
+    [map]: <V>(fn: (val: T, ind: number) => V) => Exclude<V, Skip>[],
+    [toArr]: <V>(fn: (val: T, ind: number) => V) => Exclude<V, Skip>[],
+    [toObj]: <R extends readonly [string, any]>(fn: (val: T) => Skip | R) => { [K: string]: any },
+    [rem]: (val: T) => void
+  }
+
+  interface MapConstructor {}
+  interface Map<K, V> {
+    [add]: (k: K, v: V) => void,
+    [count]: () => number,
+    [empty]: () => boolean,
+    [find]: (fn: (val: V, key: K) => any) => ({ found: true, val: V, key: K } | { found: false, val: null, key: null }),
+    [map]: <T>(fn: (val: V, key: K) => Skip | readonly [string, any]) => { [Key: string]: any },
+    [toArr]: <T>(fn: (val: V, key: K) => T) => Exclude<T, Skip>[],
+    [toObj]: <T>(fn: (val: V, key: K) => Skip | readonly [string, any]) => { [Key: string]: any },
+    [rem]: (key: K) => void
+  }
+
   interface StringConstructor {
     [base32]:    string,
     [base36]:    string,
     [base62]:    string,
-    [base64]:    string,
+    [base64Url]: string,
     [base64Std]: string,
     [baseline]:  (str: string) => string,
     [charset]:   (str: string) => CharSet,
-  };
-  interface String extends ProtoWithSymbols {
-    [count](): number,
-    [has](s: string): boolean,
-    [padHead](n: number, s?: string): string,
-    [padTail](n: number, s?: string): string,
+  }
+  interface String {
+    [code]: (ind?: number) => number,
+    [count]: () => number,
+    [has]: (s: string) => boolean,
+    [padHead]: (n: number, s?: string) => string,
+    [padTail]: (n: number, s?: string) => string,
     [toNum]: (chrs: string | CharSet) => bigint,
-    [hasHead]<H extends string>(this: string, head: H): this is `${H}${string}`,
-    [hasTail]<T extends string>(this: string, tail: T): this is `${string}${T}`,
-    [upper]<S extends string>(this: S): Uppercase<S>,
-    [lower]<S extends string>(this: S): Lowercase<S>,
+    [hasHead]: <H extends string>(this: string, head: H) => this is `${H}${string}`,
+    [hasTail]: <T extends string>(this: string, tail: T) => this is `${string}${T}`,
+    [upper]: <S extends string>(this: S) => Uppercase<S>,
+    [lower]: <S extends string>(this: S) => Lowercase<S>,
     [cut]: {
       (str: string, cuts: 1): [ string, string ],
       (str: string, cuts: 2): [ string, string, string ],
@@ -370,7 +247,7 @@ declare global {
       (amount: number, char?: string): string,
       (str: string): string
     }
-  };
+  }
 
 }
 

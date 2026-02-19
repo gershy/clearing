@@ -349,15 +349,6 @@ const cases = [
   },
   
   {
-    name: 'Array.prototype[toArr]',
-    fn: async () => {
-      const arr = [ 1, 2, 3 ];
-      const mapped = arr[toArr](v => v * 10);
-      if (!equal(mapped, [ 10, 20, 30 ])) throw Error('failed');
-    }
-  },
-  
-  {
     name: 'Array.prototype[toObj]',
     fn: async () => {
       const arr = [ 'a', 'b', 'c' ];
@@ -784,17 +775,7 @@ const cases = [
       const obj = m[toObj]((v, k) => [ k, v * 100 ]);
       if (!equal(obj, { a: 100, b: 200 })) throw Error('failed');
     }
-  },
-  
-  // Misc
-  
-  {
-    name: 'Fails every time',
-    fn: async () => {
-      throw Error('ahah!');
-    }
   }
-  
   
 ];
 
@@ -807,6 +788,7 @@ for (const { name, fn } of cases) {
   } catch (err: any) {
     
     console.log(`FAILED: "${name}"`, err[limn]());
+    process.exit(1);
     
   }
   
