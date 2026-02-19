@@ -63,7 +63,7 @@ declare global {
     
   };
   
-  // <SYMBOLS>
+  // <SYMBOLS> :: declarations :: /const ([a-zA-Z0-9]+)[ ]*[:][ ]*unique symbol;/
   const add:       unique symbol;
   const allArr:    unique symbol;
   const allObj:    unique symbol;
@@ -114,10 +114,66 @@ declare global {
   const upper:     unique symbol;
   // </SYMBOLS>
   
+  // Adding symbol properties to Object.prototype will cause typescript to think these properties
+  // are also available for extending types, e.g. Array - to avoid this we merge in an object which
+  // defines every symbol as `undefined`!
+  type SymbolsProto = {
+    // <SYMBOLS> :: SymbolsProto :: /\[([a-zA-Z0-9]+)\][ ]*[:][ ]*undefined
+    [add]:       undefined,
+    [allArr]:    undefined,
+    [allObj]:    undefined,
+    [at]:        undefined,
+    [assert]:    undefined,
+    [base32]:    undefined,
+    [base36]:    undefined,
+    [base62]:    undefined,
+    [base64Std]: undefined,
+    [base64Url]: undefined,
+    [baseline]:  undefined,
+    [bind]:      undefined,
+    [bits]:      undefined,
+    [char]:      undefined,
+    [charset]:   undefined,
+    [code]:      undefined,
+    [count]:     undefined,
+    [cut]:       undefined,
+    [dive]:      undefined,
+    [empty]:     undefined,
+    [find]:      undefined,
+    [fire]:      undefined,
+    [group]:     undefined,
+    [has]:       undefined,
+    [hasHead]:   undefined,
+    [hasTail]:   undefined,
+    [indent]:    undefined,
+    [int32]:     undefined,
+    [int64]:     undefined,
+    [isInt]:     undefined,
+    [later]:     undefined,
+    [limn]:      undefined,
+    [lower]:     undefined,
+    [map]:       undefined,
+    [mapk]:      undefined,
+    [merge]:     undefined,
+    [mod]:       undefined,
+    [padHead]:   undefined,
+    [padTail]:   undefined,
+    [rem]:       undefined,
+    [slash]:     undefined,
+    [slice]:     undefined,
+    [suppress]:  undefined,
+    [toArr]:     undefined,
+    [toNum]:     undefined,
+    [toObj]:     undefined,
+    [toStr]:     undefined,
+    [upper]:     undefined
+    // </SYMBOLS>
+  };
+  
   interface ErrorConstructor {
     [assert]: <V = any>(args: V, fn: (args: V) => boolean) => void
   }
-  interface Error {
+  interface Error extends SymbolsProto {
     [mod]:      (props: { [K: string]: any }) => Error,
     [fire]:     (props?: { [K: string]: any }) => never,
     [suppress]: () => Error,
@@ -130,7 +186,7 @@ declare global {
   }
   
   interface ArrayConstructor {}
-  interface Array<T> {
+  interface Array<T> extends SymbolsProto {
     [has]: (val: unknown) => boolean,
     [map]: <Fn extends (v: T, i: number) => any>(fn: Fn) => Exclude<ReturnType<Fn>, Skip>[],
     [add]: <TT extends T>(val: TT) => TT,
@@ -143,7 +199,7 @@ declare global {
   }
   
   interface FunctionConstructor {}
-  interface Function {
+  interface Function extends SymbolsProto {
     [bind]: <Fn extends (...args: any[]) => any, To>(this: Fn, to: To) => ((...args: Parameters<Fn> extends [ infer A0, ...infer AM ] ? AM : never) => ReturnType<Fn>)
   }
   
@@ -151,7 +207,7 @@ declare global {
     [int32]: number,
     [int64]: number
   }
-  interface Number {
+  interface Number extends SymbolsProto {
     [char]: () => string,
     [isInt]: () => boolean,
     [toStr]: (str: string | CharSet, len?: number) => string,
@@ -162,7 +218,7 @@ declare global {
   }
   
   interface BigIntConstructor {}
-  interface BigInt {
+  interface BigInt extends SymbolsProto {
     [toStr]: (str: string | CharSet, len?: number) => string
   }
   
@@ -194,7 +250,7 @@ declare global {
   }
   
   interface SetConstructor {}
-  interface Set<T> {
+  interface Set<T> extends SymbolsProto {
     [count]: () => number,
     [empty]: () => boolean,
     [find]: (fn: (val: T) => any) => ({ found: true, val: T } | { found: false, val: null }),
@@ -205,7 +261,7 @@ declare global {
   }
 
   interface MapConstructor {}
-  interface Map<K, V> {
+  interface Map<K, V> extends SymbolsProto {
     [add]: (k: K, v: V) => void,
     [count]: () => number,
     [empty]: () => boolean,
@@ -225,7 +281,7 @@ declare global {
     [baseline]:  (str: string) => string,
     [charset]:   (str: string) => CharSet,
   }
-  interface String {
+  interface String extends SymbolsProto {
     [code]: (ind?: number) => number,
     [count]: () => number,
     [has]: (s: string) => boolean,

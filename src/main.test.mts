@@ -54,6 +54,9 @@ const equal = (v0: any, v1: any): boolean => {
 (async () => {
   
   type Enforce<Provided, Expected extends Provided> = { provided: Provided, expected: Expected };
+  
+  // TODO: Even if these tests are failing, `npm run test` can still successfully execute here -
+  // need failing typing to prevent any other actions (e.g. git.pub) gated behind test validation
   type Tests = {
     
     1: Enforce<
@@ -90,53 +93,64 @@ const equal = (v0: any, v1: any): boolean => {
   
   await (async () => {
     
-    const getSymbolContent = (str: string) => {
+    const getSymbolSets = function*(str: string) {
       
-      const lines = str.split('\n');
-      const ind0 = lines.findIndex(ln => ln.includes('<SYMBOLS>'));
-      const ind1 = lines.findIndex(ln => ln.includes('</SYMBOLS>'));
-      return lines.slice(ind0 + 1, ind1).map(ln => ln.trim()).filter(ln => !!ln);
+      let lines = str.split('\n');
+      while (true) {
+        
+        const ind0 = lines.findIndex(ln => ln.includes('<SYMBOLS>'));
+        const ind1 = lines.findIndex(ln => ln.includes('</SYMBOLS>'));
+        
+        if (ind0 === -1) break;
+        
+        const split = lines[ind0].split('::');
+        const location = split[1].trim();
+        const regBody = split[2].trim().slice('/'.length, -'/'.length);
+        const symLines = lines.slice(ind0 + 1, ind1);
+        lines = lines.slice(ind1 + 1);
+        
+        const reg = new RegExp(regBody);
+        yield {
+          location,
+          lines: symLines
+            .map(line => {
+              
+              line = line.trim();
+              if (!line) return null;
+              
+              const match = line.match(reg);
+              if (!match) throw Object.assign(Error('bad symbol line'), { fp, reg, line });
+              
+              return match[1];
+              
+            })
+            .filter(ln => !!ln) as string[]
+        };
+        
+      }
       
     };
     
     const fp = dirname(fileURLToPath(import.meta.url));
-    const [ typeSymsFp, scriptSymsFp ] = [ 'global.d.ts', 'main.ts' ].map(fd => join(fp, fd));
+    const fileDataArr = await Promise.all(
+      [ 'global.d.ts', 'main.ts' ]
+        .map(fd => readFile(join(fp, fd), 'utf8'))
+    );
+    const symSets = fileDataArr.map(fileData => [ ...getSymbolSets(fileData) ]).flat(1);
     
-    const normalizeTypeSym = (fp: string, line: string) => {
-      
-      const reg = /const ([a-zA-Z0-9]+)[ ]*[:][ ]*unique symbol;/;
-      const match = line.match(reg);
-      if (!match) throw Object.assign(Error('bad symbol line'), { fp, line });
-      return match[1];
-      
-    };
-    const normalizeScriptSym = (fp: string, line: string) => {
-      
-      const reg = /[']([a-zA-Z0-9]+)[']/;
-      const match = line.match(reg);
-      if (!match) throw Object.assign(Error('bad symbol line'), { fp, line });
-      return match[1];
-      
-    };
+    const maxLen = Math.max(...symSets.map(symSet => symSet.lines.length));
+    for (const symSet of symSets)
+      while (symSet.lines.length < maxLen)
+        symSet.lines.push('<end of syms>');
     
-    const [ typeSyms, scriptSyms ] = await Promise.all([ typeSymsFp, scriptSymsFp ].map(async fp => {
-      return getSymbolContent(await readFile(fp, 'utf8'));
-    }));
-    
-    const max = Math.max(typeSyms.length, scriptSyms.length);
-    while (typeSyms.length   < max) typeSyms  .push('<end of syms>');
-    while (scriptSyms.length < max) scriptSyms.push('<end of syms>');
-    
-    for (let i = 0; i < typeSyms.length; i++) {
+    for (let i = 0; i < maxLen; i++) {
       
-      const t = normalizeTypeSym  (typeSymsFp,   typeSyms[i]);
-      const s = normalizeScriptSym(scriptSymsFp, scriptSyms[i]);
-      
-      if (t !== s) throw Object.assign(Error('sym mismatch'), {
-        index: i,
-        type: t,
-        script: s
-      });
+      const syms = symSets.map(symSet => symSet.lines[i]);
+      if (!syms.every(sym => sym === syms[0]))
+        throw Object.assign(Error('symbol mismatch'), {
+          index: i,
+          syms: symSets.map(symSet => ({ location: symSet.location, sym: symSet.lines[i] }))
+        });
       
     }
     
@@ -778,7 +792,6 @@ const cases = [
   }
   
 ];
-
 for (const { name, fn } of cases) {
   
   try {

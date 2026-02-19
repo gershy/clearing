@@ -9,7 +9,7 @@ const applyClearing = (() => {
   global[memSym] = true;
 
   const symNames = [
-    // <SYMBOLS>
+    // <SYMBOLS> :: definitions :: /[']([a-zA-Z0-9]+)[']/
     'add',
     'allArr',
     'allObj',
