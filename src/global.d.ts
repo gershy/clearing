@@ -4,190 +4,115 @@ declare global {
   type Fn<A=any[], T=any> = (...args: A) => T;
   type Obj<V = any> = { [typeof iden]: 'obj' } & { [k: string]: V };
   
+  // Differentiate between "map" and "rec" ("record") - maps have arbitrary keys; recs have fixed keys
   type ObjMode<O extends { [K: string]: any }> = O extends { [K in infer KK]: any } ? (string extends KK ? 'map' : 'rec') : never;
-  type ObjKeys<O extends Obj> = Extract<keyof O, string>; // | `${Extract<keyof O, number>}`; // TODO: num -> str conversion... smart??
+  type ObjKeys<O extends Obj> = Extract<keyof O, string> | `${Extract<keyof O, number>}`; // Convert numbers to strings; ignores symbols
   type ObjVals<O extends Obj> = O[Extract<keyof O, string>];
-  type Arr<V = any> = V[];
-  type MaybeFn<T> = T | ((...args: any[]) => T);
-  type ResolveFn<T> = T extends ((...args: any[]) => any) ? ReturnType<T> : T;
+  
   type Itr<O extends Obj> = Iterable<[ ObjKeys<O>, ObjVals<O> ]>;
   type Json = null | boolean | number | string | Json[] | { [K: string]: Json };
   type Skip = undefined;
   type SkipNever<V> = V extends Skip ? Skip extends V ? never : V : V; // 0 extends (1 & T) ? any : V extends Skip ? Skip extends V ? never : V : V; // Only thing that doesn't work is `SkipNever<any>`
-  type Endable = { end: () => MaybePromise<unknown> };
-  type Callable = ((...args: any[]) => any) | { new (...args: any): any };
-  type SovereignFn<T extends Callable = Callable> = T; // & { _svrn: 1 };
-  type Assign<A, B> = Omit<A, keyof B> & B;
   type UGH = any; // Use when necessary to escape typing because typescript has failed us
   
   type Dive<O extends Obj, K extends readonly string[], D = undefined> =
-      K extends [ infer K0, ...infer KM ]
-        ? K0 extends keyof O
-          ? (ObjMode<O> extends 'map' ? D : never) | (
-              KM extends []
-                ? O[K0]
-                : Dive<O[K0], KM, D>
-            )
-          : D
-        : never
+    K extends [ infer K0, ...infer KM ]
+      ? K0 extends keyof O
+        ? (ObjMode<O> extends 'map' ? D : never) | Dive<O[K0], KM, D>
+        : D
+      : O; // If `K` doesn't extend an array with a single item, it's an empty array - so use the current value
   
-  // Function args have reversed assignability from typical inheritance; they are the key for
-  // converting a union to an intersection: https://stackoverflow.com/a/50375286/830905
-  // // type Combine<U> =
-  // //     (U extends any ? (x: U) => void : never) extends (x: infer I) => void
-  // //       ? I
-  // //       : never;
-  // type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
-  // type Combine<Union> = Expand<(Union extends any ? (x: Union) => void : never) extends (x: infer Combined) => void ? Combined : never>;
-  // // type Combine0 = { a: number, b?: string } | { a?: number, b: string };
-  // type Combine1 = Combine<Combine0>;
-  
-  // Jsfn
-  // Implements "jsfn" which is "json" but with functions allowed within the payload too! (Overall,
-  // pronounced "jay-sfun"). This is implemented simply using `fn.toString()` + `eval(fnString)`. The
-  // encoded format stores a list of all paths within the json which are stringified functions. The
-  // decoding process simply calls `JSON.parse`, loops through every stringified path, and expands
-  // the stringified values with `eval`. Of course, these functions should only be used with trusted
-  // data!
-  type Hoist =  `<repo>/${string}` | `@aws/${string}`; // TODO: More imports??
-  type JsfnInst<Cls extends { new (...args: any[]): any }> = { // "jsfn instance"
-    hoist: `${Hoist}::${string}`,
-    form: Cls,
-    args: ConstructorParameters<Cls> & Jsfn
+  type CharSet = {
+    str: string,
+    size: bigint,
+    charVal: (c: string) => bigint,
+    valChar: (n: bigint) => string
   };
-  
-  type Jsfn = null | boolean | number | string | SovereignFn | JsfnInst<any> | Jsfn[] | { [K: string]: Jsfn };
-  type JsfnDecoded<T extends Jsfn, N extends string = ''> =
-    N extends '+++++'
-      ? '<TOO DEEP>'
-      : T extends null
-        ? T
-        : T extends boolean
-          ? T
-          : T extends number
-            ? T
-            : T extends string
-              ? T
-              : T extends SovereignFn<infer Fn>
-                ? Fn
-                : T extends JsfnInst<any>
-                  ? InstanceType<T['form']>
-                  : T extends { [K: string]: Jsfn }
-                    ? { [K in keyof T]: T[K] extends Jsfn ? JsfnDecoded<T[K], `+${N}`> : never }
-                    : T extends Jsfn[]
-                      ? { [K in keyof T]: T[K] extends Jsfn ? JsfnDecoded<T[K], `+${N}`> : never }
-                      : Jsfn;
-  
-  type JsfnEncoded<T extends Jsfn> = string & { _jsfn: T };
-  
-  type ObjLeafs<O> = O extends Obj ? { [K in keyof O]: ObjLeafs<O[K]> }[keyof O] : O;
-  // type ObjLeafs0 = ObjLeafs<{ a: string, b: { c: number }, d: null, e: { f: { g: undefined } } }>;
-  
-  type CharSet = { str: string, size: bigint, charVal: (c: string) => bigint, valChar: (n: bigint) => string };
 
   type MaybePromise<T> = T | Promise<T>;
 
-  // Expose native classes
-  const AsyncGeneratorFunction: any;
-  const GeneratorFunction: any;
-  
-  // Globals
-  const skip: Skip;
-  const window: any;
-  const skip: Skip;
-  const AsyncGeneratorFunction: typeof AsyncGeneratorFunction;
-  const GeneratorFunction: typeof GeneratorFunction;
-  const isForm: typeof isForm;
-  const hasForm: typeof hasForm;
-  
-  // Utility
-  const sovereign: <Fn extends (...args: any) => any>(val: Fn) => Fn & { _svrn: 1 };
-  const then: <V, G, B = never>(val: MaybePromise<V>, resolve: (val: V) => G, reject?: (err: any) => B) => MaybePromise<G | B>;
-  const safe: <V, G, B = never>(fn: () => MaybePromise<V>, resolve: (val: V) => G, reject?: (err: any) => B) => MaybePromise<G | B>;
-  
-  // Forms
-  const isForm: {
-    (val: unknown, num:    BooleanConstructor):  val is boolean,
-    (val: unknown, num:    NumberConstructor):   val is number,
-    (val: unknown, str:    StringConstructor):   val is string,
-    (val: unknown, buff:   BufferConstructor):   val is Buffer,
-    (val: unknown, arr:    ArrayConstructor):    val is any[],
-    (val: unknown, obj:    ObjectConstructor):   val is Obj<unknown>,
-    (val: unknown, fn:     FunctionConstructor): val is Fn,
-    (val: unknown, fn:     SymbolConstructor):   val is symbol,
-    <T>(val: unknown, prm: PromiseConstructor):  val is Promise<T>,
-    <C>(val: unknown, cls: C):                   val is InstanceType<C>
+  type ClsCheck = {
+    (i: unknown, num:    BooleanConstructor):  i is boolean,
+    (i: unknown, num:    NumberConstructor):   i is number,
+    (i: unknown, str:    StringConstructor):   i is string,
+    (i: unknown, buff:   BufferConstructor):   i is Buffer,
+    (i: unknown, arr:    ArrayConstructor):    i is any[],
+    (i: unknown, obj:    ObjectConstructor):   i is Obj<unknown>,
+    (i: unknown, fn:     FunctionConstructor): i is Fn,
+    (i: unknown, fn:     SymbolConstructor):   i is symbol,
+    <T>(i: unknown, prm: PromiseConstructor):  i is Promise<T>,
+    <C>(i: unknown, cls: C):                   i is InstanceType<C>
   };
-  const getForm: {
-    (val: number):               NumberConstructor,
-    (val: string):               StringConstructor,
-    (val: Buffer):               BufferConstructor,
-    (val: any[]):                ArrayConstructor,
-    (val: { [K: string]: any }): ObjectConstructor,
-    (val: (...a: any[]) => any): FunctionConstructor,
-    (val: Promise<any>):         PromiseConstructor,
-    <T>(val: T):                 { new (...args: any[]): T }
-  };
-  const hasForm: {
-    (val: any, fnc: FunctionConstructor): val is (...args: any) => any,
-    (val: any, obj: ObjectConstructor): val is { [K: string]: any },
-    (val: any, str: StringConstructor): val is string,
-    (val: any, num: NumberConstructor): val is number,
-    (val: any, arr: ArrayConstructor): val is any[],
-    (val: any, arr: BufferConstructor): val is Buffer,
-    <T>(val: any, prm: PromiseConstructor): val is Promise<T>,
-    <C>(val: unknown, cls: C): val is InstanceType<C>
-  };
-  const getFormName: (f: any) => string;
-  
-  const jsfn: {
-    encode: SovereignFn<
-      <Data extends Jsfn>(dec: Data, opts?: { encodeFn?: (fn: Fn) => string }) => {
-        hoists: `<repo>/${string}::${string}`[],
-        str: JsfnEncoded<Data>;
-      }
-    >
+  const clearing: {
+    
+    getClsName: (i: any) => string,
+    getCls: {
+      (i: number):               NumberConstructor,
+      (i: string):               StringConstructor,
+      (i: Buffer):               BufferConstructor,
+      (i: any[]):                ArrayConstructor,
+      (i: { [K: string]: any }): ObjectConstructor,
+      (i: (...a: any[]) => any): FunctionConstructor,
+      (i: Promise<any>):         PromiseConstructor,
+      <T>(i: T):                 { new (...args: any[]): T }
+    },
+    isCls: ClsCheck,
+    inCls: ClsCheck,
+    
+    skip: Skip
+    
   };
   
-  const add:      unique symbol;
-  const allow: unique symbol;
-  const at:       unique symbol;
-  const apart:    unique symbol;
-  const assert:   unique symbol;
-  const bind:     unique symbol;
-  const bits:     unique symbol;
-  const built:    unique symbol;
-  const char:     unique symbol;
-  const code:     unique symbol;
-  const count:    unique symbol;
-  const cut:      unique symbol;
-  const dive:     unique symbol;
-  const empty:    unique symbol;
-  const fire:     unique symbol;
-  const group:    unique symbol;
-  const has:      unique symbol;
-  const hasHead:  unique symbol;
-  const hasTail:  unique symbol;
-  const indent:   unique symbol;
-  const isInt:    unique symbol;
-  const limn:     unique symbol;
-  const lower:    unique symbol;
-  const mod:      unique symbol;
-  const map:      unique symbol;
-  const mapk:     unique symbol;
-  const merge:    unique symbol;
-  const padHead:  unique symbol;
-  const padTail:  unique symbol;
-  const rem:      unique symbol;
-  const find:     unique symbol;
-  const slash:    unique symbol;
-  const slice:    unique symbol;
-  const suppress: unique symbol;
-  const toArr:    unique symbol;
-  const toNum:    unique symbol;
-  const toObj:    unique symbol;
-  const toStr:    unique symbol;
-  const upper:    unique symbol;
+  // <SYMBOLS>
+  const add:       unique symbol;
+  const allArr:    unique symbol;
+  const allObj:    unique symbol;
+  const at:        unique symbol;
+  const assert:    unique symbol;
+  const base32:    unique symbol;
+  const base36:    unique symbol;
+  const base62:    unique symbol;
+  const base64Std: unique symbol;
+  const base64Url: unique symbol;
+  const baseline:  unique symbol;
+  const bind:      unique symbol;
+  const bits:      unique symbol;
+  const char:      unique symbol;
+  const charset:   unique symbol;
+  const code:      unique symbol;
+  const count:     unique symbol;
+  const cut:       unique symbol;
+  const dive:      unique symbol;
+  const empty:     unique symbol;
+  const find:      unique symbol;
+  const fire:      unique symbol;
+  const group:     unique symbol;
+  const has:       unique symbol;
+  const hasHead:   unique symbol;
+  const hasTail:   unique symbol;
+  const indent:    unique symbol;
+  const int32:     unique symbol;
+  const int64:     unique symbol;
+  const isInt:     unique symbol;
+  const later:     unique symbol;
+  const limn:      unique symbol;
+  const lower:     unique symbol;
+  const map:       unique symbol;
+  const mapk:      unique symbol;
+  const merge:     unique symbol;
+  const mod:       unique symbol;
+  const padHead:   unique symbol;
+  const padTail:   unique symbol;
+  const rem:       unique symbol;
+  const slash:     unique symbol;
+  const slice:     unique symbol;
+  const suppress:  unique symbol;
+  const toArr:     unique symbol;
+  const toNum:     unique symbol;
+  const toObj:     unique symbol;
+  const toStr:     unique symbol;
+  const upper:     unique symbol;
+  // </SYMBOLS>
   
   // Typing only
   const iden: unique symbol; // associate types with their *direct* constructor
@@ -197,10 +122,8 @@ declare global {
   interface ProtoWithSymbols {
     [add]:      undefined
     [at]:       undefined
-    [apart]:    undefined
     [assert]:   undefined
     [bind]:     undefined
-    [built]:    undefined
     [count]:    undefined
     [cut]:      undefined
     [dive]:     undefined
@@ -232,7 +155,7 @@ declare global {
   };
   
   interface ErrorConstructor {
-    assert: {
+    [assert]: {
       <R, V = any>(args: V, fn: (args: V) => boolean): asserts args is R,
     }
   };
@@ -249,9 +172,7 @@ declare global {
     })
   };
   
-  interface ArrayConstructor {
-    stub: any[]
-  };
+  interface ArrayConstructor {};
   interface Array<T> extends ProtoWithSymbols {
     [iden]: 'arr',
     [has]: (val: unknown) => boolean,
@@ -262,45 +183,31 @@ declare global {
         fn: Fn
       ): Exclude<ReturnType<Fn>, Skip>[]
     },
-    [add]:   <TT extends T>(val: TT) => void,
+    [add]:   <TT extends T>(val: TT) => TT,
     [rem]:   <TT extends T>(val: TT) => void,
     [count]: () => number,
     [empty]: (this: any[]) => this is never[],
     [toObj]: <Fn extends (v: T, n: number) => Skip | readonly [string, any], R = Exclude<ReturnType<Fn>, Skip>>(fn: Fn) => { [K in R[0]]: R[1] },
     [find]:  (fn: (val: T, n: number) => any) => ({ found: true, val: T, ind: number } | { found: false, val: null, ind: null }),
-    [group]: <G extends string>(fn: (v: T) => G) => { [K in G]?: T[] }
+    [group]: <G extends string>(fn: (v: T) => Skip | G) => { [K in G]?: T[] }
   };
   
-  interface FunctionConstructor {
-    stub: <T>(a: T, ...args: any[]) => T
-  };
+  interface FunctionConstructor {};
   interface Function extends ProtoWithSymbols {
     [iden]: 'fnc',
     [bind]: {
       <
-        Fn extends (this: any, ...args: any[]) => any,
+        Fn extends (...args: any[]) => any,
         To
       >(
         this: Fn,
         to: To
-      ): ((this: To, ...args: Parameters<Fn>) => ReturnType<Fn>)
-    }
-  };
-  
-  interface GeneratorFunctionConstructor {};
-  interface Generator<T> extends ProtoWithSymbols {
-    [toArr]: {
-      <
-        Fn extends (v: T) => any
-      >(
-        fn: Fn
-      ):
-        ReturnType<Fn>[],
+      ): ((...args: Parameters<Fn> extends [ infer A0, ...infer AM ] ? AM : never) => ReturnType<Fn>)
     }
   };
   
   interface NumberConstructor {
-    int32: number
+    [int32]: number
   };
   interface Number extends ProtoWithSymbols {
     [iden]: 'num',
@@ -314,10 +221,7 @@ declare global {
     [toStr]: (str: string | CharSet, len?: number) => string
   };
   
-  interface ObjectConstructor {
-    plain: (obj?: any) => any,
-  };
-  
+  interface ObjectConstructor {};
   interface Object extends ProtoWithSymbols {
     [iden]: 'obj',
     [empty]: {
@@ -337,7 +241,7 @@ declare global {
         D extends any = undefined
       >(
         this: O,
-        k: string | string[],
+        k: K,
         def?: D
       ): Dive<O, K extends string[] ? K : [ K ], D>,
     },
@@ -399,19 +303,11 @@ declare global {
         fn: Fn
       ): Exclude<ReturnType<Fn>, Skip>[],
     },
-    [built]: {
-      (this: Obj<any>): any
-      // <O extends Obj>(this: O): Obj<ObjLeafs<O>>,
-    },
-    [apart]: {
-      // Iterates all terminal values in an object tree, along with the dive key needed to access them
-      <O extends Obj>(this: O): Generator<{ dive: string[], val: any }>,
-    },
-    [dive]: {
-      <O extends Obj, Cmps extends (keyof any)[], D extends any = Skip>(this: O, cmps: readonly Cmps, def: D): Dive<O, Cmps> | D,
-    },
     [count]: {
       <O extends Obj>(this: O): number,
+    },
+    [group]: {
+      <O extends Obj, G extends string>(fn: (v: T) => Skip | G): { [K in G]?: Optional<O> }
     },
     [Symbol.iterator]: {
       <O extends Obj>(this: O): Iterator<[ ObjKeys<O>, ObjVals<O> ]>
@@ -420,10 +316,9 @@ declare global {
   };
   
   interface PromiseConstructor {
-    // <T>(fn: (resolve: (v: T) => void, reject: (err: any) => void) => any): Promise<T>,
-    later: <T=void>() => PromiseLater<T>,
-    allArr: PromiseConstructor['all'],
-    allObj: <O extends { [K: keyof any]: Promise<any> }>(obj: O) => { [K in keyof O]: Awaited<O[K]> }
+    [allArr]: PromiseConstructor['all'],
+    [allObj]: <O extends { [K: keyof any]: Promise<any> }>(obj: O) => { [K in keyof O]: Awaited<O[K]> },
+    [later]: <T=void>() => PromiseLater<T>
   };
   interface Promise<T> {};
   interface PromiseLater<T=void> extends Promise<T>, ProtoWithSymbols  {
@@ -437,7 +332,6 @@ declare global {
     [rem]:   (val: T) => void
   };
   
-  
   interface MapConstructor {};
   interface Map<K, V> extends ProtoWithSymbols {
     [add]:   (k: K, v: V) => void,
@@ -447,13 +341,13 @@ declare global {
   };
   
   interface StringConstructor {
-    charset: (str: string) => CharSet,
-    base32: string,
-    base36: string,
-    base62: string,
-    base64: string,
-    base64Std: string,
-    baseline: (str: string) => string,
+    [base32]:    string,
+    [base36]:    string,
+    [base62]:    string,
+    [base64]:    string,
+    [base64Std]: string,
+    [baseline]:  (str: string) => string,
+    [charset]:   (str: string) => CharSet,
   };
   interface String extends ProtoWithSymbols {
     [count](): number,
@@ -482,7 +376,3 @@ declare global {
 
 export {};
 
-// Type testing - these aren't exported!
-type Dive0 = Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b', 'c' ]>;
-type Dive1 = Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b' ]>;
-type Dive2 = Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b', 'd' ]>;

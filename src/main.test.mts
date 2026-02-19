@@ -1,0 +1,813 @@
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import './main';
+
+const equal = (v0: any, v1: any): boolean => {
+  
+  if (v0 === v1) return true;
+  
+  const cls0 = clearing.getCls(v0);
+  const cls1 = clearing.getCls(v1);
+  
+  if (cls0 !== cls1) return false;
+  
+  if (cls0 === null)    return false;
+  if (cls0 === String)  return false;
+  if (cls0 === Number)  return false;
+  if (cls0 === Boolean) return false;
+  
+  if (cls0 === Array) {
+    if (v0[count]() !== v1[count]()) return false;
+    return (v0 as any[]).every((v, n) => equal(v, v1[n]));
+  }
+  
+  if (cls0 === Object) {
+    if (v0[count]() !== v1[count]()) return false;
+    for (const k in v0) {
+      if (!v1[has](k)) return false;
+      if (!equal(v0[k], v1[k])) return false;
+    }
+    return true;
+  }
+  
+  if (cls0 === Set) {
+    if (v0.size !== v1.size) return false;
+    for (const item of v0) if (!v1.has(item)) return false;
+    return true;
+  }
+  
+  if (cls0 === Map) {
+    if (v0.size !== v1.size) return false;
+    for (const [ k, v ] of v0) {
+      if (!v1.has(k)) return false;
+      if (!equal(v, v1.get(k))) return false;
+    }
+    return true;
+  }
+  
+  return false;
+  
+};
+
+// Type testing
+(async () => {
+  
+  type Enforce<Provided, Expected extends Provided> = { provided: Provided, expected: Expected };
+  type Tests = {
+    
+    1: Enforce<
+      Dive<{ a: { b: { c: 'xyz' } } }, []>,
+      { a: { b: { c: 'xyz' } } }
+    >,
+    
+    2: Enforce<
+      Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b', 'c' ]>,
+      'xyz'
+    >,
+
+    3: Enforce<
+      Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b' ]>,
+      { c: 'xyz' }
+    >,
+
+    4: Enforce<
+      Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'b', 'd' ]>,
+      undefined
+    >,
+
+    5: Enforce<
+      Dive<{ a: { b: { c: 'xyz' } } }, [ 'a', 'c', 'b' ]>,
+      undefined
+    >
+    
+  };
+  
+})();
+
+// Enforce symbol alignment for global.d.ts vs main.ts - typescript doesn't seem up to it!
+(async () => {
+  
+  await (async () => {
+    
+    const getSymbolContent = (str: string) => {
+      
+      const lines = str.split('\n');
+      const ind0 = lines.findIndex(ln => ln.includes('<SYMBOLS>'));
+      const ind1 = lines.findIndex(ln => ln.includes('</SYMBOLS>'));
+      return lines.slice(ind0 + 1, ind1).map(ln => ln.trim()).filter(ln => !!ln);
+      
+    };
+    
+    const fp = dirname(fileURLToPath(import.meta.url));
+    const [ typeSymsFp, scriptSymsFp ] = [ 'global.d.ts', 'main.ts' ].map(fd => join(fp, fd));
+    
+    const normalizeTypeSym = (fp: string, line: string) => {
+      
+      const reg = /const ([a-zA-Z0-9]+)[ ]*[:][ ]*unique symbol;/;
+      const match = line.match(reg);
+      if (!match) throw Object.assign(Error('bad symbol line'), { fp, line });
+      return match[1];
+      
+    };
+    const normalizeScriptSym = (fp: string, line: string) => {
+      
+      const reg = /[']([a-zA-Z0-9]+)[']/;
+      const match = line.match(reg);
+      if (!match) throw Object.assign(Error('bad symbol line'), { fp, line });
+      return match[1];
+      
+    };
+    
+    const [ typeSyms, scriptSyms ] = await Promise.all([ typeSymsFp, scriptSymsFp ].map(async fp => {
+      return getSymbolContent(await readFile(fp, 'utf8'));
+    }));
+    
+    const max = Math.max(typeSyms.length, scriptSyms.length);
+    while (typeSyms.length   < max) typeSyms  .push('<end of syms>');
+    while (scriptSyms.length < max) scriptSyms.push('<end of syms>');
+    
+    for (let i = 0; i < typeSyms.length; i++) {
+      
+      const t = normalizeTypeSym  (typeSymsFp,   typeSyms[i]);
+      const s = normalizeScriptSym(scriptSymsFp, scriptSyms[i]);
+      
+      if (t !== s) throw Object.assign(Error('sym mismatch'), {
+        index: i,
+        type: t,
+        script: s
+      });
+      
+    }
+    
+  })();
+  
+})();
+
+const cases = [
+  
+  // Object
+  
+  {
+    name: 'Object.prototype[at]',
+    fn: async () => {
+      
+      const obj0 = { a: { b: { c: 'z' } } };
+      
+      const v0 = obj0[at]([ 'a', 'b' ] as const);
+      if (v0 !== obj0.a.b) throw Error('failed');
+      
+      const v1 = obj0[at]([ 'a', 'b', 'c', 'd' ]);
+      if (v1 !== undefined) throw Error('failed');
+      
+      const v2 = obj0[at]([ 'z' ]);
+      if (v2 !== undefined) throw Error('failed');
+      
+      const obj1 = {};
+      const v3 = obj1[at]([]);
+      if (v3 !== obj1) throw Error('failed');
+      
+      const v4 = obj1[at]([ 'a' ]);
+      if (v4 !== undefined) throw Error('failed');
+      
+      const v5 = obj1[at]([ 'a' ], 'hihi');
+      if (v5 !== 'hihi') throw Error('failed');
+      
+    }
+  },
+  
+  {
+    name: 'Object.prototype[count]',
+    fn: async () => {
+      if (({})[count]() !== 0) throw Error('failed');
+      if (({ a: 1, b: 2 })[count]() !== 2) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[empty]',
+    fn: async () => {
+      if (({})[empty]() !== true) throw Error('failed');
+      if (({ a: 1 })[empty]() !== false) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[group]',
+    fn: async () => {
+      const obj = { a: 1, b: 10, c: 3 };
+      const grouped = obj[group](n => n < 5 ? 'small' : 'big');
+      if (!equal(grouped, { small: { a: 1, c: 3 }, big: { b: 10 } })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[has]',
+    fn: async () => {
+      const obj = { a: 1 };
+      if (!obj[has]('a')) throw Error('failed');
+      if (obj[has]('b')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[map]',
+    fn: async () => {
+      const obj = { a: 1, b: 2 };
+      const mapped = obj[map](v => v * 2);
+      if (!equal(mapped, { a: 2, b: 4 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[mapk]',
+    fn: async () => {
+      const obj = { a: 1, b: 2 };
+      const mapped = obj[mapk]((v, k) => [ k.toUpperCase(), v * 10 ]);
+      if (!equal(mapped, { A: 10, B: 20 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[merge]',
+    fn: async () => {
+      const obj: any = { a: 1, b: { c: 2 } };
+      obj[merge]({ b: { d: 3 }, e: 4 });
+      if (obj.b.c !== 2 || obj.b.d !== 3 || obj.e !== 4) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[slash]',
+    fn: async () => {
+      const obj = { a: 1, b: 2, c: 3 };
+      const slashed = obj[slash]([ 'b' ]);
+      if (!equal(slashed, { a: 1, c: 3 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[slice]',
+    fn: async () => {
+      const obj = { a: 1, b: 2, c: 3 };
+      const sliced = obj[slice]([ 'a', 'c' ]);
+      if (!equal(sliced, { a: 1, c: 3 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[toArr]',
+    fn: async () => {
+      const obj = { a: 1, b: 2 };
+      const arr = obj[toArr]((v, k) => `${k}=${v}`);
+      if (!equal(arr, [ 'a=1', 'b=2' ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Object.prototype[Symbol.iterator]',
+    fn: async () => {
+      const obj = { a: 1, b: 2 };
+      const entries: [string, number][] = [];
+      for (const entry of obj) entries.push(entry as [string, number]);
+      if (entries.length !== 2) throw Error('failed');
+    }
+  },
+  
+  // Array
+  
+  {
+    name: 'Array.prototype[add]',
+    fn: async () => {
+      const arr = [ 1, 2 ];
+      const added = arr[add](3);
+      if (added !== 3 || arr.length !== 3) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[count]',
+    fn: async () => {
+      if ([ 1, 2, 3 ][count]() !== 3) throw Error('failed');
+      if (([] as any[])[count]() !== 0) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[empty]',
+    fn: async () => {
+      if (([] as any[])[empty]() !== true) throw Error('failed');
+      if ([ 1 ][empty]() !== false) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[find]',
+    fn: async () => {
+      const arr = [ 10, 20, 30 ];
+      const result = arr[find](v => v > 15);
+      if (!result.found || result.val !== 20 || result.ind !== 1) throw Error('failed');
+      
+      const missing = arr[find](v => v > 100);
+      if (missing.found) throw Error('failed missing');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[group]',
+    fn: async () => {
+      const arr = [ 1, 2, 3, 4, 5 ];
+      const grouped = arr[group](n => n < 3 ? 'small' : 'big');
+      if (!equal(grouped, { small: [ 1, 2 ], big: [ 3, 4, 5 ] })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[has]',
+    fn: async () => {
+      if (![ 1, 2, 3 ][has](2)) throw Error('failed');
+      if ([ 1, 2, 3 ][has](5)) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[map]',
+    fn: async () => {
+      const arr = [ 1, 2, 3 ];
+      const mapped = arr[map](v => v * 2);
+      if (!equal(mapped, [ 2, 4, 6 ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[rem]',
+    fn: async () => {
+      const arr = [ 1, 2, 3, 2 ];
+      arr[rem](2);
+      if (arr.length !== 3 || arr[0] !== 1 || arr[1] !== 3) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[toArr]',
+    fn: async () => {
+      const arr = [ 1, 2, 3 ];
+      const mapped = arr[toArr](v => v * 10);
+      if (!equal(mapped, [ 10, 20, 30 ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Array.prototype[toObj]',
+    fn: async () => {
+      const arr = [ 'a', 'b', 'c' ];
+      const obj = arr[toObj]((v, i) => [ v, i ]);
+      if (!equal(obj, { a: 0, b: 1, c: 2 })) throw Error('failed');
+    }
+  },
+  
+  // String
+  
+  {
+    name: 'String[baseline]',
+    fn: async () => {
+      const result = String[baseline](`
+        | line1
+        | line2
+      `);
+      if (!result.includes('line1') || !result.includes('line2')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String[charset]',
+    fn: async () => {
+      const hex = String[charset]('0123456789abcdef');
+      if (hex.size !== 16n) throw Error('failed size');
+      if (hex.charVal('a') !== 10n) throw Error('failed charVal');
+      if (hex.valChar(15n) !== 'f') throw Error('failed valChar');
+    }
+  },
+  
+  {
+    name: 'String.prototype[code]',
+    fn: async () => {
+      if ('A'[code]() !== 65) throw Error('failed');
+      if ('AB'[code](1) !== 66) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[count]',
+    fn: async () => {
+      if ('hello'[count]() !== 5) throw Error('failed');
+      if (''[count]() !== 0) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[cut]',
+    fn: async () => {
+      const result = 'a:b:c:d'[cut](':');
+      if (result[0] !== 'a' || result[1] !== 'b:c:d') throw Error('failed');
+      
+      const result2 = 'a:b:c:d'[cut](':', 2);
+      if (result2[0] !== 'a' || result2[1] !== 'b' || result2[2] !== 'c:d') throw Error('failed 2');
+    }
+  },
+  
+  {
+    name: 'String.prototype[has]',
+    fn: async () => {
+      if (!'hello world'[has]('world')) throw Error('failed');
+      if ('hello world'[has]('xyz')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[hasHead]',
+    fn: async () => {
+      if (!'hello'[hasHead]('hel')) throw Error('failed');
+      if ('hello'[hasHead]('llo')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[hasTail]',
+    fn: async () => {
+      if (!'hello'[hasTail]('llo')) throw Error('failed');
+      if ('hello'[hasTail]('hel')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[indent]',
+    fn: async () => {
+      const result = 'line1\nline2'[indent](2);
+      if (!result.startsWith('  line1')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[lower]',
+    fn: async () => {
+      if ('HELLO'[lower]() !== 'hello') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[upper]',
+    fn: async () => {
+      if ('hello'[upper]() !== 'HELLO') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[padHead]',
+    fn: async () => {
+      if ('5'[padHead](3, '0') !== '005') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[padTail]',
+    fn: async () => {
+      if ('5'[padTail](3, '0') !== '500') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'String.prototype[toNum]',
+    fn: async () => {
+      if ('ff'[toNum](String[charset]('0123456789abcdef')) !== 255n) throw Error('failed');
+    }
+  },
+  
+  // Number
+  
+  {
+    name: 'Number[int32] / Number[int64]',
+    fn: async () => {
+      if (Number[int32] !== 2 ** 32) throw Error('failed int32');
+      if (Number[int64] !== 2 ** 64) throw Error('failed int64');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[char]',
+    fn: async () => {
+      if ((65)[char]() !== 'A') throw Error('failed');
+      if ((97)[char]() !== 'a') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[isInt]',
+    fn: async () => {
+      if (!(5)[isInt]()) throw Error('failed');
+      if ((5.5)[isInt]()) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[toArr]',
+    fn: async () => {
+      const arr = (3)[toArr](i => i * 2);
+      if (!equal(arr, [ 0, 2, 4 ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[toObj]',
+    fn: async () => {
+      const obj = (3)[toObj](i => [ `k${i}`, i * 10 ]);
+      if (!equal(obj, { k0: 0, k1: 10, k2: 20 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[toStr]',
+    fn: async () => {
+      const hex = String[charset]('0123456789abcdef');
+      if ((255)[toStr](hex) !== 'ff') throw Error('failed');
+      if ((5)[toStr](String[base62], 4) !== '0005') throw Error('failed pad');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[Symbol.iterator]',
+    fn: async () => {
+      const arr = [ ...3 as any ];
+      if (!equal(arr, [ 0, 1, 2 ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Number.prototype[bits]',
+    fn: async () => {
+      const bitArr = [ ...(13)[bits]() ];
+      // 13 = 1101 binary, LSB first = [1, 0, 1, 1]
+      if (!equal(bitArr, [ 1, 0, 1, 1 ])) throw Error('failed');
+    }
+  },
+  
+  // BigInt
+  
+  {
+    name: 'BigInt.prototype[toStr]',
+    fn: async () => {
+      const hex = String[charset]('0123456789abcdef');
+      if ((255n)[toStr](hex) !== 'ff') throw Error('failed');
+    }
+  },
+  
+  // Function
+  
+  {
+    name: 'Function.prototype[bind]',
+    fn: async () => {
+      const add = (a: number, b: number, c: number) => a + b + c;
+      const add10 = add[bind](10);
+      if (add10(5, 3) !== 18) throw Error('failed');
+    }
+  },
+  
+  // Error tests
+  
+  {
+    name: 'Error[assert]',
+    fn: async () => {
+      // Should not throw
+      Error[assert]({ x: 5, y: 10 }, ({ x, y }) => x < y);
+      
+      // Should throw
+      let threw = false;
+      try {
+        Error[assert]({ x: 10, y: 5 }, ({ x, y }) => x < y);
+      } catch {
+        threw = true;
+      }
+      if (!threw) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Error.prototype[mod]',
+    fn: async () => {
+      const err = Error('base')[mod]({ message: 'modified', code: 123 });
+      if (err.message !== 'modified' || (err as any).code !== 123) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Error.prototype[fire]',
+    fn: async () => {
+      let threw = false;
+      try {
+        Error('test')[fire]({ code: 'ERR' });
+      } catch (e: any) {
+        threw = true;
+        if (e.code !== 'ERR') throw Error('failed code');
+      }
+      if (!threw) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Error.prototype[limn]',
+    fn: async () => {
+      const err = Error('test');
+      const limned = err[limn]();
+      if (limned.msg !== 'test' || limned.form !== 'Error') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Error.prototype[suppress]',
+    fn: async () => {
+      const err = Error('test')[suppress]();
+      if (!err[Symbol.for('clearing.err.suppressed')]) throw Error('failed');
+    }
+  },
+  
+  // Promise tests
+  
+  {
+    name: 'Promise[allArr]',
+    fn: async () => {
+      const results = await Promise[allArr]([ Promise.resolve(1), Promise.resolve(2) ]);
+      if (!equal(results, [ 1, 2 ])) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Promise[allObj]',
+    fn: async () => {
+      const results = await Promise[allObj]({
+        a: Promise.resolve(1),
+        b: Promise.resolve(2)
+      });
+      if (!equal(results, { a: 1, b: 2 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Promise[later]',
+    fn: async () => {
+      const p = Promise[later]<string>();
+      setTimeout(() => p.resolve('done'), 1);
+      const result = await p;
+      if (result !== 'done') throw Error('failed');
+    }
+  },
+  
+  // Set tests
+  
+  {
+    name: 'Set.prototype[count]',
+    fn: async () => {
+      if (new Set([ 1, 2, 3 ])[count]() !== 3) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[empty]',
+    fn: async () => {
+      if (!new Set()[empty]()) throw Error('failed');
+      if (new Set([ 1 ])[empty]()) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[find]',
+    fn: async () => {
+      const s = new Set([ 10, 20, 30 ]);
+      const result = s[find](v => v > 15);
+      if (!result.found || result.val !== 20) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[map]',
+    fn: async () => {
+      const s = new Set([ 1, 2, 3 ]);
+      const arr = s[map](v => v * 2);
+      if (!arr.includes(2) || !arr.includes(4) || !arr.includes(6)) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[rem]',
+    fn: async () => {
+      const s = new Set([ 1, 2, 3 ]);
+      s[rem](2);
+      if (s.has(2) || s.size !== 2) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[toArr]',
+    fn: async () => {
+      const s = new Set([ 1, 2, 3 ]);
+      const arr = s[toArr](v => v * 10);
+      if (!arr.includes(10) || !arr.includes(20) || !arr.includes(30)) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Set.prototype[toObj]',
+    fn: async () => {
+      const s = new Set([ 'a', 'b' ]);
+      const obj = s[toObj](v => [ v, v.toUpperCase() ]);
+      if (!equal(obj, { a: 'A', b: 'B' })) throw Error('failed');
+    }
+  },
+  
+  // Map tests
+  
+  {
+    name: 'Map.prototype[count]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 1 ], [ 'b', 2 ] ]);
+      if (m[count]() !== 2) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[empty]',
+    fn: async () => {
+      if (!new Map()[empty]()) throw Error('failed');
+      if (new Map([ [ 'a', 1 ] ])[empty]()) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[find]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 10 ], [ 'b', 20 ] ]);
+      const result = m[find](v => v > 15);
+      if (!result.found || result.val !== 20 || result.key !== 'b') throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[map]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 1 ], [ 'b', 2 ] ]);
+      const obj = m[map]((v, k) => [ k.toUpperCase(), v * 10 ]);
+      if (!equal(obj, { A: 10, B: 20 })) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[rem]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 1 ], [ 'b', 2 ] ]);
+      m[rem]('a');
+      if (m.has('a') || m.size !== 1) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[toArr]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 1 ], [ 'b', 2 ] ]);
+      const arr = m[toArr]((v, k) => `${k}=${v}`);
+      if (!arr.includes('a=1') || !arr.includes('b=2')) throw Error('failed');
+    }
+  },
+  
+  {
+    name: 'Map.prototype[toObj]',
+    fn: async () => {
+      const m = new Map([ [ 'a', 1 ], [ 'b', 2 ] ]);
+      const obj = m[toObj]((v, k) => [ k, v * 100 ]);
+      if (!equal(obj, { a: 100, b: 200 })) throw Error('failed');
+    }
+  },
+  
+  // Misc
+  
+  {
+    name: 'Fails every time',
+    fn: async () => {
+      throw Error('ahah!');
+    }
+  }
+  
+  
+];
+
+for (const { name, fn } of cases) {
+  
+  try {
+    
+    await fn();
+    
+  } catch (err: any) {
+    
+    console.log(`FAILED: "${name}"`, err[limn]());
+    
+  }
+  
+}
