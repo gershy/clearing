@@ -1,12 +1,11 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "../cmp/mjs",
     "declaration": true,
-    "declarationDir": "../cmp/mjs",
-    "emitDeclarationOnly": false
+    "declarationDir": "../cmp/mjs"
   },
   "exclude": [ "../src/**/*.test.ts" ]
 }

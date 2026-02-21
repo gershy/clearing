@@ -1,3 +1,38 @@
+type ClsCheck = {
+  (i: unknown, num:    BooleanConstructor):  i is boolean,
+  (i: unknown, num:    NumberConstructor):   i is number,
+  (i: unknown, str:    StringConstructor):   i is string,
+  (i: unknown, buff:   BufferConstructor):   i is Buffer,
+  (i: unknown, arr:    ArrayConstructor):    i is any[],
+  (i: unknown, obj:    ObjectConstructor):   i is Obj<unknown>,
+  (i: unknown, fn:     FunctionConstructor): i is Fn,
+  (i: unknown, fn:     SymbolConstructor):   i is symbol,
+  <T>(i: unknown, prm: PromiseConstructor):  i is Promise<T>,
+  <C extends abstract new (...args: any) => any>(i: unknown, cls: C): i is InstanceType<C>
+};
+
+export const getClsName = i => {
+  if (i === null)      return 'Null';
+  if (i === undefined) return 'Undef';
+  if (i !== i)         return 'Nan';
+  return Object.getPrototypeOf(i)?.constructor.name ?? 'Prototypeless';
+};
+export const getCls = i => Object.getPrototypeOf(i)?.constructor ?? null;
+export const isCls: ClsCheck = (i, C): i is any => {
+  
+  // NaN only matches against the NaN primitive (not the Number Form)
+  if (i !== i)   return C !== C;
+  
+  // `null` and `undefined` only match to themselves
+  if (i == null) return i === C;
+  
+  // Otherwise strictly check the constructor
+  return Object.getPrototypeOf(i).constructor === C;
+  
+};
+export const inCls: ClsCheck = (i, C): i is any => i instanceof C;
+export const skip = undefined;
+
 const applyClearing = (() => {
 
   const global: any = globalThis;
@@ -62,29 +97,7 @@ const applyClearing = (() => {
   ] as const;
   const syms = Object.fromEntries(symNames.map(term => [ term, Symbol(`${pfx}:${term}`) ]));
   
-  const getClsName = i => {
-    if (i === null)      return 'Null';
-    if (i === undefined) return 'Undef';
-    if (i !== i)         return 'Nan';
-    return Object.getPrototypeOf(i)?.constructor.name ?? 'Prototypeless';
-  };
-  const getCls = i => Object.getPrototypeOf(i)?.constructor ?? null;
-  const isCls: typeof clearing['isCls'] = (i, C): i is any => {
-    
-    // NaN only matches against the NaN primitive (not the Number Form)
-    if (i !== i)   return C !== C;
-    
-    // `null` and `undefined` only match to themselves
-    if (i == null) return i === C;
-    
-    // Otherwise strictly check the constructor
-    return Object.getPrototypeOf(i).constructor === C;
-    
-  };
-  const inCls: typeof clearing['inCls'] = (i, C): i is any => i instanceof C;
-  const skip = undefined;
-  
-  Object.assign(global, { ...syms, clearing: { getClsName, getCls, isCls, inCls } });
+  Object.assign(global, { ...syms });
   
   const protoDefs = (Cls: any, def: any) => {
     

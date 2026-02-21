@@ -26,37 +26,6 @@ declare global {
     charVal: (c: string) => bigint,
     valChar: (n: bigint) => string
   };
-  type ClsCheck = {
-    (i: unknown, num:    BooleanConstructor):  i is boolean,
-    (i: unknown, num:    NumberConstructor):   i is number,
-    (i: unknown, str:    StringConstructor):   i is string,
-    (i: unknown, buff:   BufferConstructor):   i is Buffer,
-    (i: unknown, arr:    ArrayConstructor):    i is any[],
-    (i: unknown, obj:    ObjectConstructor):   i is Obj<unknown>,
-    (i: unknown, fn:     FunctionConstructor): i is Fn,
-    (i: unknown, fn:     SymbolConstructor):   i is symbol,
-    <T>(i: unknown, prm: PromiseConstructor):  i is Promise<T>,
-    <C extends abstract new (...args: any) => any>(i: unknown, cls: C): i is InstanceType<C>
-  };
-  const clearing: {
-    
-    getClsName: (i: any) => string,
-    getCls: {
-      (i: number):               NumberConstructor,
-      (i: string):               StringConstructor,
-      (i: Buffer):               BufferConstructor,
-      (i: any[]):                ArrayConstructor,
-      (i: { [K: string]: any }): ObjectConstructor,
-      (i: (...a: any[]) => any): FunctionConstructor,
-      (i: Promise<any>):         PromiseConstructor,
-      <T>(i: T):                 { new (...args: any[]): T }
-    },
-    isCls: ClsCheck,
-    inCls: ClsCheck,
-    
-    skip: Skip
-    
-  };
   
   // <SYMBOLS> :: declarations :: /const ([a-zA-Z0-9]+)[ ]*[:][ ]*unique symbol;/
   const add:       unique symbol;
