@@ -1,4 +1,4 @@
-import { inCls, getCls, getClsName } from '@gershy/clearing';
+import { inCls, getCls, getClsName } from '../src/main.ts';
 
 export const cmpAny = Symbol('@gershy/test/cmp/any');
 

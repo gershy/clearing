@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertEqual } from '../build/utils.test.ts';
+import './main.ts';
 
 // Type testing
 (async () => {
