@@ -204,7 +204,7 @@ declare global {
   
   interface PromiseConstructor {
     [allArr]: PromiseConstructor['all'],
-    [allObj]: <O extends { [K: string]: Promise<any> }>(obj: O) => Promise<{ [K in keyof O]: Awaited<O[K]> }>,
+    [allObj]: <O extends { [K: string]: Promise<any> }>(obj: O) => Promise<{ [K in keyof O]: Exclude<Awaited<O[K]>, Skip> }>,
     [later]: <T=void>() => PromiseLater<T>
   }
   interface Promise<T> {}
