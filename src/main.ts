@@ -33,6 +33,43 @@ export const isCls: ClsCheck = (i, C): i is any => {
 export const inCls: ClsCheck = (i, C): i is any => i instanceof C;
 export const skip = undefined;
 
+type Then = {
+  <V, R0 = V, R1 = never>(val: Promise<V>, rsv?: (v: V) => R0, rjc?: (e: any) => R1): Promise<R0 | R1>,
+  <V, R0 = V, R1 = never>(val: V,          rsv?: (v: V) => R0, rjc?: (e: any) => R1): R0 | R1;
+};
+export const then: Then = <V, R0 = V, R1 = never>(
+  val: Promise<V> | V,
+  rsv: (v: V) => R0 = (v => v as any),
+  rjc: (e: any) => R1 = ((e): any => { throw e; })
+): Promise<R0 | R1> | R0 | R1 => {
+  
+  // Act on `val` regardless of whether it's a Promise or immediate value; return `rsv(val)`
+  // either immediately or as a Promise
+  
+  if (inCls(val, Promise)) return val.then(rsv).catch(rjc);
+  
+  try        { return rsv(val); }
+  catch(err) { return rjc(err); }
+  
+};
+
+type Safe = {
+  <V, R0 = never>(fn: () => Promise<V>, rjc?: (e: any) => R0): Promise<V | R0>,
+  <V, R0 = never>(fn: () =>          V, rjc?: (e: any) => R0): Promise<V | R0>
+};
+export const safe: Safe = <V, R0 = never>(
+  fn:  () => Promise<V> | V,
+  rjc: ((e: any) => R0) = e => { throw e; }
+): Promise<V | R0> | V | R0 => {
+  
+  // Execute a function which returns a value either synchronously or asynchronously; in both cases
+  // allows errors occurring from function execution to be handled
+  
+  try        { return then(fn(), v => v, rjc); }
+  catch(err) { return rjc(err); }
+  
+};
+
 const applyClearing = (() => {
 
   const global: any = globalThis;
@@ -429,7 +466,7 @@ const applyClearing = (() => {
       
     },
     [suppress](this: Error) {
-      this[Symbol.for('clearing.err.suppressed')] = true;
+      this[Symbol.for('@gershy.clearing.err.suppressed')] = true;
       
       if (this.cause) {
         const causes = inCls(this.cause, Error) ? [ this.cause ] : this.cause;

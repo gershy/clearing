@@ -585,7 +585,7 @@ import { assertEqual } from '../build/utils.test.ts';
       name: 'Error.prototype[suppress]',
       fn: async () => {
         const err = Error('test')[suppress]();
-        if (!err[Symbol.for('clearing.err.suppressed')]) throw Error('failed');
+        if (!err[Symbol.for('@gershy.clearing.err.suppressed')]) throw Error('failed');
       }
     },
     

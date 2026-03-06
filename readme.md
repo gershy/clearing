@@ -32,6 +32,92 @@ Symbol properties maintains compatibility with the vast majority of npm modules.
 more thing - the symbols used to extend functionality are set in the global scope, so they are
 always globally available.
 
+## Exported helpers
+
+In addition to prototype extensions, this module exports several utility helpers for direct import:
+
+```ts
+import { isCls, inCls, getClsName, getCls, skip, then, safe } from '@gershy/clearing';
+```
+
+### `isCls(value, Constructor)`
+Type guard for strict class/constructor matching. Handles primitives, null, undefined, and NaN correctly.
+
+```ts
+isCls(5,         Number);    // true
+isCls(5,         NaN);       // false
+isCls(5,         String);    // false
+isCls('abc',     String);    // true
+isCls(null,      null);      // true
+isCls(undefined, undefined); // true
+isCls(null,      undefined); // false
+isCls(undefined, null);      // false
+isCls(NaN,       NaN);       // true
+isCls({},        Object);    // true
+isCls([],        Array);     // true
+isCls(new Map(), Map);       // true
+```
+
+### `inCls(value, Constructor)`
+Type guard for `instanceof` checks (including inheritance).
+
+```ts
+inCls([], Array); // true
+inCls(new (class X extends Array {})(), Array); // true
+inCls({}, Object); // true
+inCls(5, Number); // false (primitives are not instanceof)
+```
+
+### `getClsName(value)`
+Returns the class/constructor name of a value, or special names for null/undefined/NaN.
+
+```ts
+getClsName(5); // 'Number'
+getClsName('abc'); // 'String'
+getClsName(null); // 'Null'
+getClsName(undefined); // 'Undef'
+getClsName(NaN); // 'Nan'
+getClsName({}); // 'Object'
+getClsName(Object.create(null)); // 'Prototypeless'
+```
+
+### `getCls(value)`
+Returns the constructor function of a value, or null if not available.
+
+```ts
+getCls(5); // Number
+getCls('abc'); // String
+getCls(null); // null
+getCls(undefined); // null
+getCls({}); // Object
+getCls(Object.create(null)); // null
+```
+
+### `skip`
+Special exported value (undefined) used to signal omission in mapping helpers.
+
+```ts
+import { skip } from '@gershy/clearing';
+[1, 2, 3].map(v => v > 1 ? v : skip); // [skip, 2, 3]
+```
+
+### `then(value, onFulfilled?, onRejected?)`
+Unified handler for both Promise and non-Promise values. Applies `onFulfilled`/`onRejected` as appropriate.
+
+```ts
+then(Promise.resolve(5), v => v * 2); // Promise resolving to 10
+then(5, v => v * 2); // 10
+then(Promise.reject('fail'), undefined, e => 'fallback'); // Promise resolving to 'fallback'
+```
+
+### `safe(fn, onRejected?)`
+Runs a function (sync or async), catching errors and returning a Promise. Optionally handles errors with `onRejected`.
+
+```ts
+await safe(() => JSON.parse('{ bad }'), e => 'fallback'); // 'fallback'
+await safe(async () => await fetch('bad-url'), e => null); // null if fetch throws
+```
+
 ## `Object` extensions
 
 There are currently no extensions on the `Object` class.
