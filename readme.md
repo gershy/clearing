@@ -217,7 +217,7 @@ console.log(obj[mapk]((v, k) => [ k.toUpperCase(), v * 10 ])); // { A: 10, B: 20
 
 ### `Object.prototype[merge]`
 
-Deep merges another object into `this` (mutates in place). Use `clearing.skip` for deletion.
+Deep merges another object into `this` (mutates in place). Use `skip` global for deletion.
 
 ```ts
 
@@ -652,10 +652,20 @@ Error[assert]({ x: 10, y: 5 }, ({ x, y }) => x < y); // throws!
 Modifies an error's message and adds properties. Returns the error for chaining.
 
 ```ts
-throw Error('something failed')[mod]({ code: 'err99', context: { userId: 123 } });
+// Add context to errors:
+throw Error('oops')[mod]({ code: 'err99', context: { userId: 123 } });
 
-// Can also modify the message
-throw Error('base error')[mod]({ message: 'enhanced message', extra: 'data' });
+// Overwrite the error message by passing a string, or supplying "message" or "msg" properties:
+throw Error('oops')[mod]('new message');
+throw Error('oops')[mod]({ msg:     'new message', extra: 'data' });
+throw Error('oops')[mod]({ message: 'new message', extra: 'data' });
+
+// Pass a callback to succinctly reference the original message:
+throw Error('oops')[mod](msg => `Modified message! Original: ${msg}`);
+throw Error('oops')[mod](msg => ({
+  msg: `Modified message! Original: ${msg}`,
+  extra: 'data'
+}));
 ```
 
 ### `Error.prototype[fire]`

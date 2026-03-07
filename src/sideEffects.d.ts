@@ -3,6 +3,7 @@ declare global {
   // Util
   type Fn<A extends any[] = any[], T = any> = (...args: A) => T;
   type Obj<V = any> = { [k: string]: V };
+  type Arr<V = any> = V[];
   
   // Differentiate between "map" and "rec" ("record") - maps have arbitrary keys; recs have fixed keys
   type ObjMode<O extends { [K: string]: any }> = O extends { [K in infer KK]: any } ? (string extends KK ? 'map' : 'rec') : never;
@@ -138,8 +139,8 @@ declare global {
     [assert]: <V = any>(args: V, fn: (args: V) => boolean) => void
   }
   interface Error extends SymbolsProto {
-    [mod]:      (props: { [K: string]: any }) => Error,
-    [fire]:     (props?: { [K: string]: any }) => never,
+    [mod]:      (props:  string | Obj<any> | ((msg: string, err: Error) => Obj<any>)) => Error,
+    [fire]:     (props?: string | Obj<any> | ((msg: string, err: Error) => Obj<any>)) => never,
     [suppress]: () => Error,
     [limn]: (seen?: Map<any, any>) => (Obj<Json> & {
       form: string,
@@ -203,8 +204,9 @@ declare global {
   }
   
   interface PromiseConstructor {
-    [allArr]: PromiseConstructor['all'],
-    [allObj]: <O extends { [K: string]: Promise<any> }>(obj: O) => Promise<{ [K in keyof O]: Exclude<Awaited<O[K]>, Skip> }>,
+    [allArr]: <V extends Promise<any>>(arr: Arr<V>) => Promise<Arr<Exclude<Awaited<V>, Skip>>>,
+    [allObj]: <V extends Promise<any>>(obj: Obj<V>) => Promise<Obj<Exclude<Awaited<V>, Skip>>>,
+    // [allObj]: <O extends { [K: string]: Promise<any> }>(obj: O)   => Promise<{ [K in keyof O]: Exclude<Awaited<O[K]>, Skip> }>,
     [later]: <T=void>() => PromiseLater<T>
   }
   interface Promise<T> {}
@@ -230,9 +232,9 @@ declare global {
     [count]: () => number,
     [empty]: () => boolean,
     [find]: (fn: (val: V, key: K) => any) => ({ found: true, val: V, key: K } | { found: false, val: null, key: null }),
-    [map]: <T>(fn: (val: V, key: K) => Skip | readonly [string, any]) => { [Key: string]: any },
+    [map]: <T>(fn: (val: V, key: K) => Skip | readonly [string, any]) => { [K: string]: any },
     [toArr]: <T>(fn: (val: V, key: K) => T) => Exclude<T, Skip>[],
-    [toObj]: <T>(fn: (val: V, key: K) => Skip | readonly [string, any]) => { [Key: string]: any },
+    [toObj]: <R>(fn: (val: V, key: K) => Skip | readonly [string, R]) => Obj<R>,
     [rem]: (key: K) => void
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "@gershy/clearing",
-  "version": "0.0.18",
+  "version": "0.0.24",
   "description": "Adds the features you always wish javascript had!",
   "keywords": [
     "clearing",
@@ -22,7 +22,6 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
-  
   "type": "module",
   "files": [
     "cmp"
@@ -34,7 +33,6 @@
       "require": "./cmp/cjs/main.js"
     }
   },
-  
   "scripts": {
     "test": "npm run ts.check && npx tsx ./src/main.test.ts",
     "ts.check": "npx tsc --noEmit",
@@ -44,5 +42,7 @@
     "git.pub": "npm run test && git add --all && git commit -m \"automated\" && git push",
     "npm.login": "npm login",
     "npm.pub": "npm run test && npm run build && npm publish --access public"
-  }
+  },
+  "peerDependencies": {},
+  "dependencies": {}
 }

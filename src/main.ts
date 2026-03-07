@@ -480,8 +480,8 @@ const applyClearing = (() => {
   protoDefs(Promise, {
     
     $: {
-      [allArr]: Promise.all,
-      [allObj]: (obj) => {
+      [allArr]: arr => Promise.all(arr).then(arr => arr.filter(v => v !== skip)),
+      [allObj]: obj => {
         
         // Need to get `keys` immediately, in case `obj` mutates before resolution
         const keys = Object.keys(obj);
