@@ -2,7 +2,7 @@ type ClsCheck = {
   (i: unknown, num:    BooleanConstructor):  i is boolean,
   (i: unknown, num:    NumberConstructor):   i is number,
   (i: unknown, str:    StringConstructor):   i is string,
-  (i: unknown, buff:   BufferConstructor):   i is Buffer,
+  (i: unknown, buff:   Buffer):              i is Buffer,
   (i: unknown, arr:    ArrayConstructor):    i is any[],
   (i: unknown, obj:    ObjectConstructor):   i is Obj<unknown>,
   (i: unknown, fn:     FunctionConstructor): i is Fn,
@@ -136,30 +136,22 @@ const applyClearing = (() => {
   
   Object.assign(global, { ...syms });
   
-  const protoDefs = (Cls: any, def: any) => {
+  const assignSyms = (Cls: any, def: any) => {
     
-    let protoVals: [ symbol, any ][] = [];
-    let classVals: [ symbol, any ][] = [];
+    const protoVals: [ symbol, any ][] = [];
     for (const key of Reflect.ownKeys(def)) {
-      if (key !== '$' && !isCls(key, Symbol)) throw Object.assign(Error('invalid proto key'), { Cls, keyClsName: getClsName(key), key });
-      
-      if (key !== '$') {
-        protoVals.push([ key, def[key] ]);
-      } else {
-        for (const k of Reflect.ownKeys(def[key])) {
-          if (!isCls(k, Symbol)) throw Object.assign(Error('invalid class key'), { Cls, keyClsName: getClsName(k), key: k });
-          classVals.push([ k, def[key][k] ]);
-        }
-      }
+      if (!isCls(key, Symbol)) throw Object.assign(Error('invalid proto key'), { Cls, keyClsName: getClsName(key), key });
+      protoVals.push([ key, def[key] ]);
     }
     
     // Assign class properties
-    for (const [ target, props ] of [ [ Cls, classVals ], [ Cls.prototype, protoVals ] ] as const)
-      for (const [ sym, value ] of props)
-        Object.defineProperty(target, sym, { enumerable: false, value });
+    for (const [ sym, value ] of protoVals)
+      Object.defineProperty(Cls, sym, { enumerable: false, value });
     
   };
-  protoDefs(Object, {
+  
+  assignSyms(Object, {});
+  assignSyms(Object.prototype, {
     
     [at](this: Obj, cmps: string | string[], def=skip) {
       let ptr = this;
@@ -241,7 +233,9 @@ const applyClearing = (() => {
     * [Symbol.iterator](this: Obj) { for (const k in this) yield [ k, this[k] ]; }
     
   });
-  protoDefs(Array, {
+  
+  assignSyms(Array, {});
+  assignSyms(Array.prototype, {
     
     [add](...args) { this.push(...args); return args[0]; },
     [count]() { return this.length; },
@@ -286,45 +280,43 @@ const applyClearing = (() => {
     }
     
   });
-  protoDefs(String, {
-    
-    $: {
+  
+  assignSyms(String, {
+    [baseline]: (str, seq='| ') => {
       
-      [baseline]: (str, seq='| ') => {
-        
-        return str.split('\n')[map](ln => {
-          const ind = ln.indexOf(seq);
-          if (ind === -1) return skip;
-          return ln.slice(ind + seq.length);
-        }).join('\n');
-        
-      },
-      [base32]:    '0123456789abcdefghijklmnopqrstuv',
-      [base36]:    '0123456789abcdefghijklmnopqrstuvwxyz',
-      [base62]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-      [base64Url]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_',
-      [base64Std]: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/',
-      [charset]: str => {
-        const cache = new Map<string, bigint>();
-        return {
-          str,
-          size: BigInt(str.length),
-          charVal: (c: string) => {
-            if (!cache.has(c)) {
-              const ind = str.indexOf(c);
-              if (ind < 0) throw Error('char outside charset')[mod]({ char: c });
-              cache.set(c, BigInt(ind));
-            }
-            return cache.get(c);
-          },
-          valChar: (n: bigint) => {
-            if (n < 0 || n >= str.length) throw Error('val outside charset');
-            return str[n as any as number];
-          }
-        };
-      },
-        
+      return str.split('\n')[map](ln => {
+        const ind = ln.indexOf(seq);
+        if (ind === -1) return skip;
+        return ln.slice(ind + seq.length);
+      }).join('\n');
+      
     },
+    [base32]:    '0123456789abcdefghijklmnopqrstuv',
+    [base36]:    '0123456789abcdefghijklmnopqrstuvwxyz',
+    [base62]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    [base64Url]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_',
+    [base64Std]: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/',
+    [charset]: str => {
+      const cache = new Map<string, bigint>();
+      return {
+        str,
+        size: BigInt(str.length),
+        charVal: (c: string) => {
+          if (!cache.has(c)) {
+            const ind = str.indexOf(c);
+            if (ind < 0) throw Error('char outside charset')[mod]({ char: c });
+            cache.set(c, BigInt(ind));
+          }
+          return cache.get(c);
+        },
+        valChar: (n: bigint) => {
+          if (n < 0 || n >= str.length) throw Error('val outside charset');
+          return str[n as any as number];
+        }
+      };
+    }
+  });
+  assignSyms(String.prototype, {
     
     [code](ind=0) { return this.charCodeAt(ind); },
     [count]() { return this.length; },
@@ -375,9 +367,9 @@ const applyClearing = (() => {
     [upper]:   String.prototype.toUpperCase,
     
   });
-  protoDefs(Number, {
-    
-    $: { [int32]: 2 ** 32, [int64]: 2 ** 64 },
+  
+  assignSyms(Number, { [int32]: 2 ** 32, [int64]: 2 ** 64 });
+  assignSyms(Number.prototype, {
     
     [char]() { return String.fromCharCode(this); },
     [isInt]() { return this === Math.round(this); }, // No bitwise shortcut - it disrupts Infinity
@@ -412,28 +404,32 @@ const applyClearing = (() => {
     * [bits]() { let n = this >= 0 ? this : -this; while (n) { yield n & 1; n = n >> 1; } }
     
   });
-  protoDefs(BigInt, { [toStr]: Number.prototype[toStr] });
-  protoDefs(Function, {
+  
+  assignSyms(BigInt, {});
+  assignSyms(BigInt.prototype, { [toStr]: Number.prototype[toStr] });
+  
+  assignSyms(Function, {});
+  assignSyms(Function.prototype, {
     
-    [bind](...args) { return this.bind(null, ...args); }
+    [bind](...args) { return this.bind(null, ...args); } // TODO: Remove
     
   });
-  protoDefs(Error, {
+  
+  assignSyms(Error, {
     
-    $: {
+    [assert]: (args: any, fn: (args: any) => boolean) => {
+      if (fn(args)) return;
       
-      [assert]: (args: any, fn: (args: any) => boolean) => {
-        if (fn(args)) return;
-        
-        throw Error('assert failed')[mod]({
-          fn: `false === (${
-            fn.toString().replace(/[\s]+/, ' ')
-          })(args)`,
-          args
-        });
-      },
-      
-    },
+      throw Error('assert failed')[mod]({
+        fn: `false === (${
+          fn.toString().replace(/[\s]+/, ' ')
+        })(args)`,
+        args
+      });
+    }
+    
+  });
+  assignSyms(Error.prototype, {
     
     [fire](this: Error, props /* { cause, msg, message, ...more } */) { throw this[mod](props); },
     [limn](this: Error, seen = new Map()): ReturnType<Error[typeof limn]> {
@@ -477,29 +473,31 @@ const applyClearing = (() => {
     }
     
   });
-  protoDefs(Promise, {
+  
+  assignSyms(Promise, {
     
-    $: {
-      [allArr]: arr => Promise.all(arr).then(arr => arr.filter(v => v !== skip)),
-      [allObj]: obj => {
+    [allArr]: arr => Promise.all(arr).then(arr => arr.filter(v => v !== skip)),
+    [allObj]: obj => {
+      
+      // Need to get `keys` immediately, in case `obj` mutates before resolution
+      const keys = Object.keys(obj);
+      return Promise.all(Object.values(obj)).then(vals => {
+        const ret = {};
+        for (const [ i, k ] of keys.entries()) if (vals[i] !== skip) ret[k] = vals[i];
+        return ret;
+      });
         
-        // Need to get `keys` immediately, in case `obj` mutates before resolution
-        const keys = Object.keys(obj);
-        return Promise.all(Object.values(obj)).then(vals => {
-          const ret = {};
-          for (const [ i, k ] of keys.entries()) if (vals[i] !== skip) ret[k] = vals[i];
-          return ret;
-        });
-          
-      },
-      [later]: (resolve, reject) => {
-        const p = new Promise((...a) => [ resolve, reject ] = a);
-        return Object.assign(p, { resolve, reject });
-      }
+    },
+    [later]: (resolve, reject) => {
+      const p = new Promise((...a) => [ resolve, reject ] = a);
+      return Object.assign(p, { resolve, reject });
     }
     
   });
-  protoDefs(Set, {
+  assignSyms(Promise.prototype, {});
+  
+  assignSyms(Set, {});
+  assignSyms(Set.prototype, {
     
     [count](this: Set<any>) { return this.size; },
     [empty](this: Set<any>) { return !this.size; },
@@ -527,7 +525,9 @@ const applyClearing = (() => {
     }
     
   });
-  protoDefs(Map, {
+  
+  assignSyms(Map, {});
+  assignSyms(Map.prototype, {
     
     [add]: Map.prototype.set,
     [count](this: Map<any, any>) { return this.size; },
