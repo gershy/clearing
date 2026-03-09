@@ -42,7 +42,6 @@ declare global {
   const base64Url: unique symbol;
   const baseline:  unique symbol;
   const bind:      unique symbol;
-  const bits:      unique symbol;
   const char:      unique symbol;
   const charset:   unique symbol;
   const code:      unique symbol;
@@ -98,7 +97,6 @@ declare global {
     [base64Url]: undefined,
     [baseline]:  undefined,
     [bind]:      undefined,
-    [bits]:      undefined,
     [char]:      undefined,
     [charset]:   undefined,
     [code]:      undefined,
@@ -177,7 +175,6 @@ declare global {
     [toArr]: <T>(fn: (n: number) => T) => T[],
     [toObj]: <R extends readonly [string, any]>(fn: (n: number) => Skip | R) => { [K: string]: any },
     [toBin]: () => Uint8Array,
-    [bits]: () => Generator<number>,
     [Symbol.iterator]: () => Generator<number>
   }
   

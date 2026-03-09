@@ -96,7 +96,6 @@ const applyClearing = (() => {
     'base64Url',
     'baseline',
     'bind',
-    'bits',
     'char',
     'charset',
     'code',
@@ -417,7 +416,6 @@ const applyClearing = (() => {
       
     },
     * [Symbol.iterator]() { for (let i = 0; i < this; i++) yield i; },
-    * [bits]() { let n = this >= 0 ? this : -this; while (n) { yield n & 1; n = n >> 1; } }
     
   });
   

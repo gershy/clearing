@@ -329,11 +329,6 @@ testRunner([
     const arr = [ ...3 as any ];
     assertEqual(arr, [ 0, 1, 2 ]);
   }},
-  { name: 'Number.prototype[bits]', fn: async () => {
-    const bitArr = [ ...(13)[bits]() ];
-    // 13 = 1101 binary, LSB first = [1, 0, 1, 1]
-    assertEqual(bitArr, [ 1, 0, 1, 1 ]);
-  }},
   
   { name: 'BigInt.prototype[toStr]', fn: async () => {
     const hex = String[charset]('0123456789abcdef');
