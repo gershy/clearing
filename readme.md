@@ -621,19 +621,6 @@ Same as `Number.prototype[toStr]`, but for BigInt values.
 ```ts
 console.log((1000000000000n)[toStr](String[base62])); // 'bLY38W'
 ```
-
-## `Function.prototype` extensions
-
-### `Function.prototype[bind]`
-
-Partially applies arguments to a function (like `bind`, but without a `this` context).
-
-```ts
-const add = (a, b, c) => a + b + c;
-const add10 = add[bind](10);
-console.log(add10(5, 3)); // 18
-```
-
 ## `Error` extensions
 
 ### `Error[assert]`

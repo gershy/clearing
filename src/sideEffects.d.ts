@@ -9,6 +9,7 @@ declare global {
   type ObjMode<O extends { [K: string]: any }> = O extends { [K in infer KK]: any } ? (string extends KK ? 'map' : 'rec') : never;
   type ObjKeys<O extends Obj> = Extract<keyof O, string> | `${Extract<keyof O, number>}`; // Convert numbers to strings; ignores symbols
   type ObjVals<O extends Obj> = O[Extract<keyof O, string>];
+  type ObjIterator<O extends Obj> = Iterable<[ string, O[keyof O] ]>;
   
   type Json = null | boolean | number | string | Json[] | { [K: string]: Json };
   type Skip = undefined;
@@ -73,6 +74,7 @@ declare global {
   const slice:     unique symbol;
   const suppress:  unique symbol;
   const toArr:     unique symbol;
+  const toBin:     unique symbol;
   const toNum:     unique symbol;
   const toObj:     unique symbol;
   const toStr:     unique symbol;
@@ -128,6 +130,7 @@ declare global {
     [slice]:     undefined,
     [suppress]:  undefined,
     [toArr]:     undefined,
+    [toBin]:     undefined,
     [toNum]:     undefined,
     [toObj]:     undefined,
     [toStr]:     undefined,
@@ -163,11 +166,6 @@ declare global {
     [group]: <G extends string>(fn: (v: T) => Skip | G) => { [K in G]?: T[] }
   }
   
-  interface FunctionConstructor {}
-  interface Function extends SymbolsProto {
-    [bind]: <Fn extends (...args: any[]) => any, To>(this: Fn, to: To) => ((...args: Parameters<Fn> extends [ infer A0, ...infer AM ] ? AM : never) => ReturnType<Fn>)
-  }
-  
   interface NumberConstructor {
     [int32]: number,
     [int64]: number
@@ -178,13 +176,15 @@ declare global {
     [toStr]: (str: string | CharSet, len?: number) => string,
     [toArr]: <T>(fn: (n: number) => T) => T[],
     [toObj]: <R extends readonly [string, any]>(fn: (n: number) => Skip | R) => { [K: string]: any },
+    [toBin]: () => Uint8Array,
     [bits]: () => Generator<number>,
     [Symbol.iterator]: () => Generator<number>
   }
   
   interface BigIntConstructor {}
   interface BigInt extends SymbolsProto {
-    [toStr]: (str: string | CharSet, len?: number) => string
+    [toStr]: (str: string | CharSet, len?: number) => string,
+    [toBin]: () => Uint8Array
   }
   
   interface ObjectConstructor {}
@@ -201,6 +201,18 @@ declare global {
     [count]: () => number,
     [group]: <O extends Obj, G extends string>(this: O, fn: (v: O[keyof O]) => Skip | G) => { [K in G]?: Partial<O> },
     [Symbol.iterator]: <O extends Obj>(this: O) => Iterator<[ ObjKeys<O>, ObjVals<O> ]>
+  }
+  
+  interface ArrayBufferConstructor {}
+  interface ArrayBuffer {
+    [toStr]: () => string,
+    [toNum]: () => bigint
+  }
+  
+  interface Uint8ArrayConstructor {}
+  interface Uint8Array {
+    [toStr]: () => string,
+    [toNum]: () => bigint
   }
   
   interface PromiseConstructor {
@@ -254,6 +266,7 @@ declare global {
     [padHead]: (n: number, s?: string) => string,
     [padTail]: (n: number, s?: string) => string,
     [toNum]: (chrs: string | CharSet) => bigint,
+    [toBin]: () => Uint8Array,
     [hasHead]: <H extends string>(this: string, head: H) => this is `${H}${string}`,
     [hasTail]: <T extends string>(this: string, tail: T) => this is `${string}${T}`,
     [upper]: <S extends string>(this: S) => Uppercase<S>,

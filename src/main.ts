@@ -79,6 +79,8 @@ const applyClearing = (() => {
   const memSym = Symbol.for(`${pfx}:mem`);
   if (global[memSym]) return;
   global[memSym] = true;
+  
+  const [ enc, dec ] = [ new TextEncoder(), new TextDecoder() ];
 
   const symNames = [
     // <SYMBOLS> :: definitions :: /[']([a-zA-Z0-9]+)[']/
@@ -126,6 +128,7 @@ const applyClearing = (() => {
     'slice',
     'suppress',
     'toArr',
+    'toBin',
     'toNum',
     'toObj',
     'toStr',
@@ -294,7 +297,7 @@ const applyClearing = (() => {
     [base32]:    '0123456789abcdefghijklmnopqrstuv',
     [base36]:    '0123456789abcdefghijklmnopqrstuvwxyz',
     [base62]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-    [base64Url]:    '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_',
+    [base64Url]: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_',
     [base64Std]: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/',
     [charset]: str => {
       const cache = new Map<string, bigint>();
@@ -347,6 +350,7 @@ const applyClearing = (() => {
     [lower]:   String.prototype.toLowerCase,
     [padHead]: String.prototype.padStart,
     [padTail]: String.prototype.padEnd,
+    [toBin]() { return enc.encode(this); },
     [toNum](cs: string | CharSet=String[base62]) {
       
       if (isCls(cs, String)) cs = String[charset](cs);
@@ -357,10 +361,10 @@ const applyClearing = (() => {
       let sum = 0n;
       const n = this.length;
       for (let ind = 0; ind < n; ind++)
-        // Earlier values of `i` represent higher places same as with written numbers further left
+        // Earlier values of `i` are more valuable; same as how with written numbers leftmost
         // digits are more significant
-        // The value of the place `i` is `ind - 1`
         sum += (base ** BigInt(n - ind - 1)) * cs.charVal(this[ind]);
+      
       return sum;
       
     },
@@ -372,14 +376,14 @@ const applyClearing = (() => {
   assignSyms(Number.prototype, {
     
     [char]() { return String.fromCharCode(this); },
-    [isInt]() { return this === Math.round(this); }, // No bitwise shortcut - it disrupts Infinity
+    [isInt]() { return this === Math.round(this); }, // No bitwise shortcut - it fails with +/- Infinity
     [toArr](fn) { const arr = new Array(this || 0); for (let i = 0; i < this; i++) arr[i] = fn(i); return arr; },
     [toObj](fn) { // Iterator: n => [ key, val ]
       const ret: [ string, any ][] = [];
       for (let i = 0; i < this; i++) { const r = fn(i); if (r !== skip) ret.push(r); }
       return Object.fromEntries(ret);
     },
-    [toStr](cs: string | CharSet, padLen=0) {
+    [toStr](cs: string | CharSet, padLen = 0) {
       
       // Note that base-1 requires 0 to map to the empty string. This also
       // means that, for `n >= 1`:
@@ -387,17 +391,29 @@ const applyClearing = (() => {
       // is always equivalent to
       //      |       singleChr.repeat(n - 1)
       
+      if (this !== this) throw Error('nan');
+      
       if (isCls(cs, String)) cs = String[charset](cs);
       
       const base = cs.size;
       if (base === 1n && padLen) throw Error(`pad with base-1 encoding`);
       
-      if (this !== this) return (base === 1n) ? '' : cs[0].repeat(Math.max(padLen, 1));
-      
       let num = this.constructor === BigInt ? (this as bigint) : BigInt(Math.floor(this));
       const digits: string[] = [];
       while (num) { digits.push(cs.valChar(num % base)); num /= base; }
       return digits.reverse().join('')[padHead](padLen, cs.str[0]);
+      
+    },
+    [toBin]() {
+      
+      if (this !== this) throw Error('nan');
+      
+      const base = 256n;
+      
+      let num = this.constructor === BigInt ? (this as bigint) : BigInt(Math.floor(this));
+      const digits: number[] = [];
+      while (num) { digits.push(Number(num % base)); num /= base; }
+      return new Uint8Array(digits.reverse());
       
     },
     * [Symbol.iterator]() { for (let i = 0; i < this; i++) yield i; },
@@ -406,13 +422,31 @@ const applyClearing = (() => {
   });
   
   assignSyms(BigInt, {});
-  assignSyms(BigInt.prototype, { [toStr]: Number.prototype[toStr] });
+  assignSyms(BigInt.prototype, { [toStr]: Number.prototype[toStr], [toBin]: Number.prototype[toBin] });
   
-  assignSyms(Function, {});
-  assignSyms(Function.prototype, {
-    
-    [bind](...args) { return this.bind(null, ...args); } // TODO: Remove
-    
+  assignSyms(ArrayBuffer, {});
+  assignSyms(ArrayBuffer.prototype, {
+    [toStr]() { return dec.decode(this); },
+    [toNum]() { return (new Uint8Array(this))[toNum](); }
+  });
+  
+  assignSyms(Uint8Array, {});
+  assignSyms(Uint8Array.prototype, {
+    [toStr]() { return dec.decode(this as Uint8Array); },
+    [toNum]() {
+      
+      const base = 256n;
+      
+      let sum = 0n;
+      const n = this.length;
+      for (let ind = 0; ind < n; ind++)
+        // Earlier values of `i` are more valuable; same as how with written numbers leftmost
+        // digits are more significant
+        sum += (base ** BigInt(n - ind - 1)) * BigInt(this[ind]);
+      
+      return sum;
+      
+    }
   });
   
   assignSyms(Error, {
