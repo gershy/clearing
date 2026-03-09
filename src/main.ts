@@ -10,7 +10,6 @@ type ClsCheck = {
   <T>(i: unknown, prm: PromiseConstructor):  i is Promise<T>,
   <C extends abstract new (...args: any) => any>(i: unknown, cls: C): i is InstanceType<C>
 };
-
 export const getClsName = i => {
   if (i === null)      return 'Null';
   if (i === undefined) return 'Undef';
